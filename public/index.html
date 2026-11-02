@@ -85,6 +85,15 @@ input:focus,select:focus{outline:2px solid #59cbb8;outline-offset:1px}
 .om-auth-note{margin:14px 0 0;font-size:11px;color:#6f879c;text-align:center}
 #omModeSelect{position:fixed;inset:0;z-index:950;display:none;place-items:center;padding:18px;background:radial-gradient(ellipse at 15% 0%,#1b4655 0,transparent 42%),radial-gradient(ellipse at 90% 10%,#25364d 0,transparent 38%),rgba(5,11,18,.96)}
 #omModeSelect.show{display:grid}
+#omMultiLobby{position:fixed;inset:0;z-index:970;display:none;overflow:auto;padding:22px;background:radial-gradient(ellipse at 12% -10%,#1b4655 0,transparent 40%),radial-gradient(ellipse at 90% 8%,#25364d 0,transparent 38%),rgba(5,11,18,.98)}
+#omMultiLobby.show{display:block}
+.om-multi-shell{width:min(900px,100%);margin:0 auto;padding:22px;border:1px solid rgba(100,197,190,.28);border-radius:18px;background:linear-gradient(155deg,#142231,#0a141f);box-shadow:0 24px 70px #000a;min-height:calc(100vh - 44px)}
+.om-multi-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid #2a4052}
+.om-multi-intro{padding:22px 2px 12px}.om-multi-intro small{color:#72ddc9;font-size:10px;letter-spacing:1.4px;font-weight:800}.om-multi-intro h2{margin:6px 0;font-size:25px}.om-multi-intro p{color:#9db1c2;font-size:13px;margin:0}
+#omMultiLobbyBody .om-territory{margin:12px 0;padding:18px;border:1px solid #2d465a;border-radius:13px;background:linear-gradient(145deg,#192e40,#101c29)}
+#omMultiLobbyBody .om-hero{margin:12px 0;padding:18px;border:1px solid #2d465a;border-radius:13px;background:#142434}
+#omMultiLobbyBody .om-territory h3{margin:0 0 12px}
+@media(max-width:600px){#omMultiLobby{padding:8px}.om-multi-shell{padding:14px;min-height:calc(100vh - 16px)}.om-multi-intro h2{font-size:21px}}
 .om-mode-box{width:min(760px,100%);padding:26px;border:1px solid rgba(100,197,190,.28);border-radius:18px;background:linear-gradient(155deg,#142231,#0a141f);box-shadow:0 24px 70px #000a}
 .om-mode-box h2{margin:5px 0 7px;font-size:25px;letter-spacing:.5px}.om-mode-box>p{margin:0 0 20px;color:#9db1c2;font-size:13px}
 .om-mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.om-mode-card{padding:19px;border:1px solid #2d465a;border-radius:14px;background:linear-gradient(145deg,#192e40,#101c29);display:flex;flex-direction:column;min-height:220px}.om-mode-card h3{margin:8px 0;font-size:17px}.om-mode-card p{color:#a5b8c8;font-size:12px;line-height:1.55;flex:1}.om-mode-icon{font-size:30px}.om-mode-card button{width:100%;margin-top:12px}
@@ -101,6 +110,16 @@ input:focus,select:focus{outline:2px solid #59cbb8;outline-offset:1px}
    <section class="om-mode-card"><div class="om-mode-icon">🌍</div><h3>Un jugador</h3><p>Continuá tu campaña habitual. Administrá un país mientras la IA controla al resto del mundo. Se conserva tu partida individual guardada.</p><button class="primary" id="omChooseSolo">Jugar individual</button></section>
    <section class="om-mode-card"><div class="om-mode-icon">🤝</div><h3>Multijugador</h3><p>Creá una sala privada o unite con un código de invitación para compartir la partida con otro jugador. La sincronización completa de turnos todavía está en desarrollo.</p><button id="omChooseMulti">Entrar al multijugador</button></section>
   </div>
+ </div>
+</div>
+<div id="omMultiLobby" role="dialog" aria-modal="true" aria-labelledby="omMultiTitle">
+ <div class="om-multi-shell">
+  <header class="om-multi-header">
+   <div class="brand"><div class="emblem">◎</div><div><h1>ORDEN MUNDIAL</h1><p>EL MUNDO SIGUE GIRANDO</p></div></div>
+   <button id="omMultiBack" type="button">← Volver a modalidades</button>
+  </header>
+  <div class="om-multi-intro"><small>ÁREA MULTIJUGADOR · SALAS PRIVADAS</small><h2 id="omMultiTitle">Crear o unirse a una partida</h2><p>Esta sección funciona por separado del modo individual. Elegí tu país y compartí el código de sala con el otro jugador.</p></div>
+  <div id="omMultiLobbyBody"></div>
  </div>
 </div>
 <div id="omAuth" class="show" role="dialog" aria-modal="true" aria-labelledby="omAuthTitle">
@@ -142,7 +161,6 @@ input:focus,select:focus{outline:2px solid #59cbb8;outline-offset:1px}
   <button data-section="Armas"><span class="ico">⚙️</span>Mercado de armas</button>
   <button data-section="Eventos"><span class="ico">🏆</span>Deportes y eventos</button>
   <button data-section="Noticias"><span class="ico">📰</span>Noticias e historia</button>
-  <button data-section="Multijugador"><span class="ico">🌐</span>Multijugador</button>
  </nav>
  <div class="nav-note"><strong style="color:var(--text)">Consejo de Estado</strong><br><br>Las decisiones afectan la estabilidad, la economía y las relaciones internacionales. Cada turno equivale a un mes.</div>
 </aside>
@@ -2315,7 +2333,8 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
  function hideModeSelector(){const el=$('omModeSelect');if(el)el.classList.remove('show')}
  window.omShowModeSelector=showModeSelector;
  $('omChooseSolo').addEventListener('click',()=>{hideModeSelector();if(typeof window.selectSection==='function')window.selectSection('Mapa mundial');notify('Modo individual seleccionado. Tu campaña habitual sigue disponible.')});
- $('omChooseMulti').addEventListener('click',()=>{hideModeSelector();if(typeof window.selectSection==='function')window.selectSection('Multijugador')});
+ $('omChooseMulti').addEventListener('click',()=>{hideModeSelector();window.omOpenMultiplayerLobby?.()});
+ $('omMultiBack').addEventListener('click',()=>{hideMultiLobby();showModeSelector()});
  $('omModeSwitch').addEventListener('click',showModeSelector);
  function goLocal(){S.mode='local';hideAuth();$('omAuth').remove?.();showModeSelector()}
 
@@ -2458,28 +2477,28 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
  async function call(path,opts={}){const r=await fetch('/api/'+path,{credentials:'same-origin',headers:{'Content-Type':'application/json'},...opts});let b={};try{b=await r.json()}catch{}if(!r.ok)throw new Error(b.message||('Error HTTP '+r.status));return b}
  function countriesList(){try{return Object.keys(countries||{}).sort()}catch{return ['Argentina','Brasil','Uruguay']}}
  function countryOptions(selected){return countriesList().map(c=>`<option ${c===selected?'selected':''}>${esc(c)}</option>`).join('')}
- function panel(){const body=$('workspaceBody');if(!body)return; $('workspaceTitle').textContent='Multijugador';body.classList.add('om-workspace');
+ function panel(){const body=$('omMultiLobbyBody');if(!body)return; $('omMultiTitle').textContent='Crear o unirse a una partida';
   if(!M.code){body.innerHTML=`<div class="om-hero"><div><small>ORDEN MUNDIAL · MULTIJUGADOR</small><h2>Partidas privadas</h2><p>Creá una sala e invitá a otro jugador mediante un código.</p></div><div class="om-ai-status"><b>ALPHA · 2 jugadores</b><span>Coordinación de sala en desarrollo.</span></div></div><div class="om-territory"><h3>Crear una partida</h3><div class="field"><label>Tu país</label><select id="omRoomCreateCountry">${countryOptions(currentCountry||'Argentina')}</select></div><button class="primary" id="omRoomCreate">Crear sala privada</button></div><div class="om-territory"><h3>Unirse a una partida</h3><div class="two"><div class="field"><label>Código de invitación</label><input id="omRoomJoinCode" maxlength="6" placeholder="ABC123" style="text-transform:uppercase"></div><div class="field"><label>Tu país</label><select id="omRoomJoinCountry">${countryOptions('Brasil')}</select></div></div><button id="omRoomJoin">Unirse a la sala</button></div><p class="muted">Esta primera entrega crea salas, asigna países y registra la confirmación de preparación. La sincronización del estado completo del mundo y la resolución autoritativa de cada mes todavía requieren una segunda etapa.</p>`;
   $('omRoomCreate').onclick=createRoom;$('omRoomJoin').onclick=joinRoom;
   }else renderRoom();
  }
- function renderRoom(){const body=$('workspaceBody');if(!body||!M.room)return;const r=M.room,players=Object.entries(r.players||{}),mine=r.players?.[M.me];body.innerHTML=`<div class="om-hero"><div><small>SALA PRIVADA · ${esc(r.code)}</small><h2>${esc(r.status==='both_ready'?'Ambos preparados':r.status==='waiting'?'Esperando invitado':'Sala creada')}</h2><p>Compartí este código con tu hermano para que se incorpore.</p></div><div class="om-ai-status"><b>CÓDIGO: ${esc(r.code)}</b><span>Turno coordinado: ${Number(r.turn)||0}</span></div></div><div class="om-territory"><h3>Jugadores</h3>${players.map(([u,p])=>`<div class="om-row"><b>${esc(u)}</b><span>${esc(p.country)}</span><small>${p.ready?'✅ Turno confirmado':'⏳ Pendiente'}</small></div>`).join('')}${players.length<2?'<p class="muted">Falta que se una el segundo jugador.</p>':''}</div><div class="om-territory"><h3>Tu participación</h3><p>País asignado: <b>${esc(mine?.country||'Sin asignar')}</b></p><button class="primary" id="omRoomReady" ${players.length<2?'disabled':''}>${mine?.ready?'Cancelar confirmación':'Confirmar que estoy listo'}</button> <button id="omRoomRefresh">Actualizar sala</button> <button id="omRoomLeave">Salir de la sala</button></div><p class="muted">Cuando ambos confirman, la sala queda marcada como «Ambos preparados». Todavía no se ejecuta el mes dentro del simulador: esa sincronización se implementará en la siguiente etapa para evitar que cada computadora procese un mundo distinto.</p>`;
+ function renderRoom(){const body=$('omMultiLobbyBody');if(!body||!M.room)return; $('omMultiTitle').textContent='Sala privada · '+M.room.code;const r=M.room,players=Object.entries(r.players||{}),mine=r.players?.[M.me];body.innerHTML=`<div class="om-hero"><div><small>SALA PRIVADA · ${esc(r.code)}</small><h2>${esc(r.status==='both_ready'?'Ambos preparados':r.status==='waiting'?'Esperando invitado':'Sala creada')}</h2><p>Compartí este código con tu hermano para que se incorpore.</p></div><div class="om-ai-status"><b>CÓDIGO: ${esc(r.code)}</b><span>Turno coordinado: ${Number(r.turn)||0}</span></div></div><div class="om-territory"><h3>Jugadores</h3>${players.map(([u,p])=>`<div class="om-row"><b>${esc(u)}</b><span>${esc(p.country)}</span><small>${p.ready?'✅ Turno confirmado':'⏳ Pendiente'}</small></div>`).join('')}${players.length<2?'<p class="muted">Falta que se una el segundo jugador.</p>':''}</div><div class="om-territory"><h3>Tu participación</h3><p>País asignado: <b>${esc(mine?.country||'Sin asignar')}</b></p><button class="primary" id="omRoomReady" ${players.length<2?'disabled':''}>${mine?.ready?'Cancelar confirmación':'Confirmar que estoy listo'}</button> <button id="omRoomRefresh">Actualizar sala</button> <button id="omRoomLeave">Salir de la sala</button></div><p class="muted">Cuando ambos confirman, la sala queda marcada como «Ambos preparados». Todavía no se ejecuta el mes dentro del simulador: esa sincronización se implementará en la siguiente etapa para evitar que cada computadora procese un mundo distinto.</p>`;
  $('omRoomReady').onclick=()=>setReady(!mine?.ready);$('omRoomRefresh').onclick=refresh;$('omRoomLeave').onclick=leaveRoom;
  }
  async function createRoom(){try{const b=await call('rooms',{method:'POST',body:JSON.stringify({country:$('omRoomCreateCountry').value})});setRoom(b.room)}catch(e){notify(e.message)}}
  async function joinRoom(){try{const code=$('omRoomJoinCode').value.trim().toUpperCase();const b=await call('rooms/join',{method:'POST',body:JSON.stringify({code,country:$('omRoomJoinCountry').value})});setRoom(b.room)}catch(e){notify(e.message)}}
- function setRoom(r){M.room=r;M.code=r.code;localStorage.setItem('om_room_code',r.code);panel();startPolling();}
+ function setRoom(r){M.room=r;M.code=r.code;localStorage.setItem('om_room_code',r.code);showMultiLobby();renderRoom();startPolling();}
  async function refresh(){if(!M.code)return;try{const b=await call('rooms/'+M.code);M.room=b.room;M.me=b.me;renderRoom()}catch(e){notify(e.message);if(/no existe|venció|pertenecés/i.test(e.message))clearRoom()}}
  async function setReady(ready){try{const b=await call('rooms/'+M.code+'/ready',{method:'POST',body:JSON.stringify({ready})});M.room=b.room;renderRoom()}catch(e){notify(e.message)}}
  async function leaveRoom(){if(!confirm('¿Querés salir de esta sala?'))return;try{await call('rooms/'+M.code+'/leave',{method:'POST',body:'{}'})}catch(e){}clearRoom()}
  function clearRoom(){M.code='';M.room=null;M.me=null;localStorage.removeItem('om_room_code');if(M.timer)clearInterval(M.timer);M.timer=null;panel()}
  function startPolling(){if(M.timer)clearInterval(M.timer);refresh();M.timer=setInterval(refresh,5000)}
- const oldSelect=window.selectSection;
- window.selectSection=function(section){if(section==='Multijugador'){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.section===section));panel();return}return oldSelect.apply(this,arguments)};
- document.addEventListener('DOMContentLoaded',()=>{});
- const nav=$('nav');if(nav&&!nav.querySelector('[data-section="Multijugador"]')){const b=document.createElement('button');b.dataset.section='Multijugador';b.innerHTML='<span class="ico">🌐</span>Multijugador';nav.appendChild(b);b.addEventListener('click',()=>window.selectSection('Multijugador'))}
- if(M.code){call('rooms/'+M.code).then(b=>{M.room=b.room;M.me=b.me;startPolling()}).catch(()=>clearRoom())}
- window.omMultiplayer={getRoom:()=>M.room,refresh};
+ function showMultiLobby(){const el=$('omMultiLobby');if(el)el.classList.add('show');panel();if(M.room)renderRoom()}
+ function hideMultiLobby(){const el=$('omMultiLobby');if(el)el.classList.remove('show')}
+ window.omOpenMultiplayerLobby=showMultiLobby;
+ // El multijugador se abre como pantalla independiente; no se incrusta en el panel del modo individual.
+ if(M.code){call('rooms/'+M.code).then(b=>{M.room=b.room;M.me=b.me;showMultiLobby();startPolling()}).catch(()=>clearRoom())}
+ window.omMultiplayer={getRoom:()=>M.room,refresh,open:showMultiLobby};
 })();
 </script>
 

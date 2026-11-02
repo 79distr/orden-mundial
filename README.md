@@ -60,7 +60,7 @@ npx wrangler pages dev public --kv=OM_KV
 
 ## Multijugador (alpha, fase 1)
 
-La primera entrega añade salas privadas de dos jugadores: crear sala, compartir código, elegir países distintos, consultar quién está conectado a la sala y confirmar preparación. Las salas se guardan en el mismo KV mediante claves `room:CODIGO` y vencen a los 30 días.
+La primera entrega añade una pantalla independiente de multijugador, separada del tablero individual. Desde el selector inicial se puede entrar al lobby para crear una sala privada o unirse con un código, elegir países distintos, consultar quién está conectado y confirmar preparación. Las salas se guardan en el mismo KV mediante claves `room:CODIGO` y vencen a los 30 días.
 
 **Importante:** esta fase todavía no sincroniza el estado completo del simulador ni procesa el avance mensual de forma autoritativa en el servidor. La confirmación de ambos jugadores solo marca la sala como `both_ready`; no debe confundirse con un turno multijugador terminado. La siguiente fase debe trasladar las acciones del juego a órdenes por jugador y resolver el mes una sola vez en el servidor. No uses esta alpha para una campaña compartida definitiva.
 
