@@ -57,3 +57,17 @@ En el panel de Cloudflare abrí el namespace KV y borrá las claves `u:TU_USUARI
 ```bash
 npx wrangler pages dev public --kv=OM_KV
 ```
+
+## Multijugador (alpha, fase 1)
+
+La primera entrega añade salas privadas de dos jugadores: crear sala, compartir código, elegir países distintos, consultar quién está conectado a la sala y confirmar preparación. Las salas se guardan en el mismo KV mediante claves `room:CODIGO` y vencen a los 30 días.
+
+**Importante:** esta fase todavía no sincroniza el estado completo del simulador ni procesa el avance mensual de forma autoritativa en el servidor. La confirmación de ambos jugadores solo marca la sala como `both_ready`; no debe confundirse con un turno multijugador terminado. La siguiente fase debe trasladar las acciones del juego a órdenes por jugador y resolver el mes una sola vez en el servidor. No uses esta alpha para una campaña compartida definitiva.
+
+### Crear una segunda cuenta
+
+El registro inicial se cierra automáticamente después de la primera cuenta. Para permitir que se registre el segundo jugador, en *Settings → Variables and Secrets* agregá temporalmente una variable de entorno:
+
+- `ALLOW_REGISTER` = `true`
+
+Hacé un nuevo deploy, que tu hermano cree su cuenta y después cambiá la variable a `false` y volvé a desplegar. También podés proteger el registro con `REGISTER_CODE`.

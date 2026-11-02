@@ -235,6 +235,79 @@ async function handleSavePut(request, env, user) {
   return json({ ok: true, updatedAt });
 }
 
+
+// --- Salas multijugador (fase 1: creación, invitación y barrera de turnos) ---
+const ROOM_TTL = 60 * 60 * 24 * 30;
+function roomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  return Array.from(bytes, b => chars[b % chars.length]).join('');
+}
+async function roomMember(request, env, code) {
+  const user = await getSessionUser(request, env);
+  if (!user) return { error: json({ error: 'auth', message: 'Iniciá sesión.' }, 401) };
+  const room = await env.OM_KV.get('room:' + code, 'json');
+  if (!room) return { error: json({ error: 'room_not_found', message: 'La sala no existe o venció.' }, 404) };
+  if (!room.players || !room.players[user]) return { error: json({ error: 'not_member', message: 'No pertenecés a esta sala.' }, 403) };
+  return { user, room };
+}
+async function handleRoomCreate(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: 'auth', message: 'Iniciá sesión.' }, 401);
+  const body = await readJson(request, 5000);
+  const country = String(body?.country || '').trim().slice(0, 80);
+  if (!country) return json({ error: 'country', message: 'Elegí un país.' }, 400);
+  let code, key;
+  for (let i = 0; i < 5; i++) { code = roomCode(); key = 'room:' + code; if (!(await env.OM_KV.get(key))) break; code = null; }
+  if (!code) return json({ error: 'room_code', message: 'No se pudo generar un código. Intentá otra vez.' }, 500);
+  const room = { code, owner: user, status: 'waiting', turn: 0, createdAt: Date.now(), players: { [user]: { country, ready: false, joinedAt: Date.now() } } };
+  await env.OM_KV.put(key, JSON.stringify(room), { expirationTtl: ROOM_TTL });
+  return json({ ok: true, room });
+}
+async function handleRoomJoin(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: 'auth', message: 'Iniciá sesión.' }, 401);
+  const body = await readJson(request, 5000);
+  const code = String(body?.code || '').trim().toUpperCase();
+  const country = String(body?.country || '').trim().slice(0, 80);
+  if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code) || !country) return json({ error: 'input', message: 'Revisá el código y el país elegido.' }, 400);
+  const key = 'room:' + code, room = await env.OM_KV.get(key, 'json');
+  if (!room) return json({ error: 'room_not_found', message: 'No encontramos esa sala.' }, 404);
+  if (room.players?.[user]) return json({ ok: true, room });
+  if (room.status !== 'waiting' || Object.keys(room.players || {}).length >= 2) return json({ error: 'room_full', message: 'La sala ya está completa.' }, 409);
+  if (Object.values(room.players).some(p => p.country.toLowerCase() === country.toLowerCase())) return json({ error: 'country_taken', message: 'Ese país ya está elegido.' }, 409);
+  room.players[user] = { country, ready: false, joinedAt: Date.now() };
+  room.status = 'ready_check';
+  await env.OM_KV.put(key, JSON.stringify(room), { expirationTtl: ROOM_TTL });
+  return json({ ok: true, room });
+}
+async function handleRoomState(request, env, code) {
+  const found = await roomMember(request, env, code);
+  if (found.error) return found.error;
+  return json({ ok: true, room: found.room, me: found.user });
+}
+async function handleRoomReady(request, env, code) {
+  const found = await roomMember(request, env, code);
+  if (found.error) return found.error;
+  const room = found.room, body = await readJson(request, 2000);
+  const ready = body?.ready !== false;
+  room.players[found.user].ready = ready;
+  const players = Object.values(room.players);
+  if (players.length === 2 && players.every(p => p.ready)) room.status = 'both_ready';
+  else room.status = players.length === 2 ? 'ready_check' : 'waiting';
+  await env.OM_KV.put('room:' + code, JSON.stringify(room), { expirationTtl: ROOM_TTL });
+  return json({ ok: true, room });
+}
+async function handleRoomLeave(request, env, code) {
+  const found = await roomMember(request, env, code);
+  if (found.error) return found.error;
+  const room = found.room;
+  delete room.players[found.user];
+  if (!Object.keys(room.players).length) await env.OM_KV.delete('room:' + code);
+  else { room.status = 'waiting'; for (const p of Object.values(room.players)) p.ready = false; await env.OM_KV.put('room:' + code, JSON.stringify(room), { expirationTtl: ROOM_TTL }); }
+  return json({ ok: true });
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -262,6 +335,13 @@ export async function onRequest(context) {
     if (route === 'register' && method === 'POST') return await handleRegister(request, env, secure, ip);
     if (route === 'login' && method === 'POST') return await handleLogin(request, env, secure, ip);
     if (route === 'logout' && method === 'POST') return await handleLogout(request, env, secure);
+
+    if (route === 'rooms' && method === 'POST') return await handleRoomCreate(request, env);
+    if (route === 'rooms/join' && method === 'POST') return await handleRoomJoin(request, env);
+    const roomRoute = route.match(/^rooms\/([A-HJ-NP-Z2-9]{6})(?:\/(ready|leave))?$/);
+    if (roomRoute && method === 'GET' && !roomRoute[2]) return await handleRoomState(request, env, roomRoute[1]);
+    if (roomRoute && method === 'POST' && roomRoute[2] === 'ready') return await handleRoomReady(request, env, roomRoute[1]);
+    if (roomRoute && method === 'POST' && roomRoute[2] === 'leave') return await handleRoomLeave(request, env, roomRoute[1]);
 
     if (route === 'save') {
       const user = await getSessionUser(request, env);
