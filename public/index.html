@@ -83,9 +83,26 @@ input:focus,select:focus{outline:2px solid #59cbb8;outline-offset:1px}
 .om-auth-box button{width:100%;margin-top:8px}
 .om-auth-box [hidden]{display:none!important}
 .om-auth-note{margin:14px 0 0;font-size:11px;color:#6f879c;text-align:center}
+#omModeSelect{position:fixed;inset:0;z-index:950;display:none;place-items:center;padding:18px;background:radial-gradient(ellipse at 15% 0%,#1b4655 0,transparent 42%),radial-gradient(ellipse at 90% 10%,#25364d 0,transparent 38%),rgba(5,11,18,.96)}
+#omModeSelect.show{display:grid}
+.om-mode-box{width:min(760px,100%);padding:26px;border:1px solid rgba(100,197,190,.28);border-radius:18px;background:linear-gradient(155deg,#142231,#0a141f);box-shadow:0 24px 70px #000a}
+.om-mode-box h2{margin:5px 0 7px;font-size:25px;letter-spacing:.5px}.om-mode-box>p{margin:0 0 20px;color:#9db1c2;font-size:13px}
+.om-mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.om-mode-card{padding:19px;border:1px solid #2d465a;border-radius:14px;background:linear-gradient(145deg,#192e40,#101c29);display:flex;flex-direction:column;min-height:220px}.om-mode-card h3{margin:8px 0;font-size:17px}.om-mode-card p{color:#a5b8c8;font-size:12px;line-height:1.55;flex:1}.om-mode-icon{font-size:30px}.om-mode-card button{width:100%;margin-top:12px}
+@media(max-width:600px){.om-mode-box{padding:18px}.om-mode-grid{grid-template-columns:1fr}.om-mode-card{min-height:0}}
 </style>
 </head>
 <body>
+<div id="omModeSelect" role="dialog" aria-modal="true" aria-labelledby="omModeTitle">
+ <div class="om-mode-box">
+  <div class="brand"><div class="emblem">◎</div><div><h1>ORDEN MUNDIAL</h1><p>EL MUNDO SIGUE GIRANDO</p></div></div>
+  <h2 id="omModeTitle">¿Cómo querés jugar?</h2>
+  <p>Elegí una modalidad. Tu progreso individual se mantiene separado de las partidas multijugador.</p>
+  <div class="om-mode-grid">
+   <section class="om-mode-card"><div class="om-mode-icon">🌍</div><h3>Un jugador</h3><p>Continuá tu campaña habitual. Administrá un país mientras la IA controla al resto del mundo. Se conserva tu partida individual guardada.</p><button class="primary" id="omChooseSolo">Jugar individual</button></section>
+   <section class="om-mode-card"><div class="om-mode-icon">🤝</div><h3>Multijugador</h3><p>Creá una sala privada o unite con un código de invitación para compartir la partida con otro jugador. La sincronización completa de turnos todavía está en desarrollo.</p><button id="omChooseMulti">Entrar al multijugador</button></section>
+  </div>
+ </div>
+</div>
 <div id="omAuth" class="show" role="dialog" aria-modal="true" aria-labelledby="omAuthTitle">
  <form class="om-auth-box" id="omAuthForm" autocomplete="on">
   <div class="brand"><div class="emblem">◎</div><div><h1>ORDEN MUNDIAL</h1><p>EL MUNDO SIGUE GIRANDO</p></div></div>
@@ -103,7 +120,7 @@ input:focus,select:focus{outline:2px solid #59cbb8;outline-offset:1px}
 <div class="shell">
 <header class="topbar">
  <div class="brand"><div class="emblem">◎</div><div><h1>ORDEN MUNDIAL</h1><p>EL MUNDO SIGUE GIRANDO</p></div></div>
- <div class="top-actions"><button class="mobile-menu" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ Menú</button><span class="date-chip" id="date">MARZO · 2026</span><span class="status-chip">● SIMULACIÓN ACTIVA</span><button id="saveGame">💾 Guardar</button><button id="loadGame">↩ Cargar</button><button id="exportSave">⬇ Copia</button><button id="importSave">⬆ Importar</button><input type="file" id="importFile" accept=".json,application/json" style="display:none"><span class="date-chip" id="omUserChip" style="display:none"></span><span class="save-status" id="saveStatus">Sin guardar</span><button id="omBackup" style="display:none" title="Restaurar la versión anterior de tu partida">⟲ Respaldo</button><button id="omLogout" style="display:none">Salir</button><button class="primary" id="nextTurn">▶ Próximo mes</button></div>
+ <div class="top-actions"><button class="mobile-menu" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ Menú</button><span class="date-chip" id="date">MARZO · 2026</span><span class="status-chip">● SIMULACIÓN ACTIVA</span><button id="saveGame">💾 Guardar</button><button id="loadGame">↩ Cargar</button><button id="exportSave">⬇ Copia</button><button id="importSave">⬆ Importar</button><input type="file" id="importFile" accept=".json,application/json" style="display:none"><button id="omModeSwitch" type="button" title="Cambiar modalidad">Cambiar modo</button><span class="date-chip" id="omUserChip" style="display:none"></span><span class="save-status" id="saveStatus">Sin guardar</span><button id="omBackup" style="display:none" title="Restaurar la versión anterior de tu partida">⟲ Respaldo</button><button id="omLogout" style="display:none">Salir</button><button class="primary" id="nextTurn">▶ Próximo mes</button></div>
 </header>
 <div class="layout">
 <aside class="panel sidebar">
@@ -2294,7 +2311,13 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   setTimeout(()=>{try{$('omAuthUser').focus()}catch(e){}},50);
  }
  function hideAuth(){$('omAuth').classList.remove('show');$('omAuthPass').value=''}
- function goLocal(){S.mode='local';hideAuth();$('omAuth').remove?.()}
+ function showModeSelector(){const el=$('omModeSelect');if(el)el.classList.add('show')}
+ function hideModeSelector(){const el=$('omModeSelect');if(el)el.classList.remove('show')}
+ window.omShowModeSelector=showModeSelector;
+ $('omChooseSolo').addEventListener('click',()=>{hideModeSelector();if(typeof window.selectSection==='function')window.selectSection('Mapa mundial');notify('Modo individual seleccionado. Tu campaña habitual sigue disponible.')});
+ $('omChooseMulti').addEventListener('click',()=>{hideModeSelector();if(typeof window.selectSection==='function')window.selectSection('Multijugador')});
+ $('omModeSwitch').addEventListener('click',showModeSelector);
+ function goLocal(){S.mode='local';hideAuth();$('omAuth').remove?.();showModeSelector()}
 
  $('omAuthToggle').addEventListener('click',()=>{S.register=!S.register;renderForm();setMsg('')});
  $('omAuthLocal').addEventListener('click',goLocal);
@@ -2326,6 +2349,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   const found=await cloudLoad(false);
   S.loaded=true;
   if(!found){await upload(true)} // cuenta nueva: se crea la primera partida
+  showModeSelector();
  }
 
  /* ---------- sincronización ---------- */
