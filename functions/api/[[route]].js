@@ -260,7 +260,7 @@ async function handleRoomCreate(request, env) {
   let code, key;
   for (let i = 0; i < 5; i++) { code = roomCode(); key = 'room:' + code; if (!(await env.OM_KV.get(key))) break; code = null; }
   if (!code) return json({ error: 'room_code', message: 'No se pudo generar un código. Intentá otra vez.' }, 500);
-  const room = { code, owner: user, status: 'waiting', turn: 0, createdAt: Date.now(), players: { [user]: { country, ready: false, joinedAt: Date.now() } } };
+  const room = { code, owner: user, status: 'waiting', turn: 0, started: false, world: null, worldVersion: 0, turnReady: {}, createdAt: Date.now(), players: { [user]: { country, ready: false, joinedAt: Date.now() } } };
   await env.OM_KV.put(key, JSON.stringify(room), { expirationTtl: ROOM_TTL });
   return json({ ok: true, room });
 }
@@ -297,6 +297,74 @@ async function handleRoomReady(request, env, code) {
   else room.status = players.length === 2 ? 'ready_check' : 'waiting';
   await env.OM_KV.put('room:' + code, JSON.stringify(room), { expirationTtl: ROOM_TTL });
   return json({ ok: true, room });
+}
+async function handleRoomStart(request, env, code) {
+  const found = await roomMember(request, env, code);
+  if (found.error) return found.error;
+  const room = found.room;
+  if (found.user !== room.owner) return json({ error: 'host_only', message: 'Solo quien creó la sala puede iniciar el mundo.' }, 403);
+  if (Object.keys(room.players || {}).length !== 2 || !Object.values(room.players).every(p => p.ready)) return json({ error: 'not_ready', message: 'Los dos jugadores deben confirmar que están listos.' }, 409);
+  const body = await readJson(request, MAX_SAVE_CHARS + 2000);
+  if (!body?.data || body.data.version !== 1) return json({ error: 'invalid_world', message: 'No se recibió un estado de mundo válido.' }, 400);
+  room.world = body.data;
+  room.worldVersion = 1;
+  room.turn = Number(body.data.turn) || 0;
+  room.started = true;
+  room.status = 'in_game';
+  room.turnReady = {};
+  await env.OM_KV.put('room:' + code, JSON.stringify(room), { expirationTtl: ROOM_TTL });
+  return json({ ok: true, room });
+}
+async function handleRoomWorldGet(request, env, code) {
+  const found = await roomMember(request, env, code);
+  if (found.error) return found.error;
+  const r = found.room;
+  return json({ ok: true, started: !!r.started, world: r.world || null, worldVersion: r.worldVersion || 0, turn: r.turn || 0, turnReady: r.turnReady || {}, owner: r.owner, me: found.user, players: r.players });
+}
+async function handleRoomWorldPut(request, env, code) {
+  const found = await roomMember(request, env, code);
+  if (found.error) return found.error;
+  const room = found.room;
+  if (!room.started) return json({ error: 'not_started', message: 'La partida todavía no comenzó.' }, 409);
+  const body = await readJson(request, MAX_SAVE_CHARS + 2000);
+  if (!body?.data || body.data.version !== 1) return json({ error: 'invalid_world', message: 'Estado de mundo inválido.' }, 400);
+  if (Number(body.baseVersion) !== Number(room.worldVersion || 0)) return json({ error: 'world_conflict', message: 'El mundo compartido cambió. Se actualizará tu pantalla.', worldVersion: room.worldVersion }, 409);
+  // Los cambios de gestión se comparten con control de versión para evitar sobrescrituras silenciosas.
+  room.world = body.data;
+  room.worldVersion = (Number(room.worldVersion) || 0) + 1;
+  room.lastWorldWriter = found.user;
+  room.worldUpdatedAt = Date.now();
+  await env.OM_KV.put('room:' + code, JSON.stringify(room), { expirationTtl: ROOM_TTL });
+  return json({ ok: true, worldVersion: room.worldVersion });
+}
+async function handleRoomTurnReady(request, env, code) {
+  const found = await roomMember(request, env, code);
+  if (found.error) return found.error;
+  const room = found.room;
+  if (!room.started) return json({ error: 'not_started', message: 'La partida todavía no comenzó.' }, 409);
+  room.turnReady = room.turnReady || {};
+  room.turnReady[found.user] = true;
+  await env.OM_KV.put('room:' + code, JSON.stringify(room), { expirationTtl: ROOM_TTL });
+  return json({ ok: true, turnReady: room.turnReady, allReady: Object.keys(room.players).length === 2 && Object.keys(room.players).every(u => room.turnReady[u]) });
+}
+async function handleRoomAdvance(request, env, code) {
+  const found = await roomMember(request, env, code);
+  if (found.error) return found.error;
+  const room = found.room;
+  if (!room.started) return json({ error: 'not_started', message: 'La partida todavía no comenzó.' }, 409);
+  if (found.user !== room.owner) return json({ error: 'host_only', message: 'El creador de la sala es quien ejecuta el avance mensual.' }, 403);
+  if (Object.keys(room.players).length !== 2 || !Object.keys(room.players).every(u => room.turnReady?.[u])) return json({ error: 'not_ready', message: 'Falta la confirmación del otro jugador.' }, 409);
+  const body = await readJson(request, MAX_SAVE_CHARS + 2000);
+  if (!body?.data || body.data.version !== 1) return json({ error: 'invalid_world', message: 'Estado de mundo inválido.' }, 400);
+  if (Number(body.baseVersion) !== Number(room.worldVersion || 0)) return json({ error: 'world_conflict', message: 'El mundo cambió antes de avanzar. Actualizá y volvé a intentarlo.' }, 409);
+  room.world = body.data;
+  room.worldVersion = (Number(room.worldVersion) || 0) + 1;
+  room.turn = Number(body.data.turn) || (Number(room.turn) + 1);
+  room.turnReady = {};
+  room.lastWorldWriter = found.user;
+  room.worldUpdatedAt = Date.now();
+  await env.OM_KV.put('room:' + code, JSON.stringify(room), { expirationTtl: ROOM_TTL });
+  return json({ ok: true, room, worldVersion: room.worldVersion });
 }
 async function handleRoomLeave(request, env, code) {
   const found = await roomMember(request, env, code);
@@ -338,6 +406,12 @@ export async function onRequest(context) {
 
     if (route === 'rooms' && method === 'POST') return await handleRoomCreate(request, env);
     if (route === 'rooms/join' && method === 'POST') return await handleRoomJoin(request, env);
+    const roomWorldRoute = route.match(/^rooms\/([A-HJ-NP-Z2-9]{6})\/(start|world|turn-ready|advance)$/);
+    if (roomWorldRoute && roomWorldRoute[2] === 'start' && method === 'POST') return await handleRoomStart(request, env, roomWorldRoute[1]);
+    if (roomWorldRoute && roomWorldRoute[2] === 'world' && method === 'GET') return await handleRoomWorldGet(request, env, roomWorldRoute[1]);
+    if (roomWorldRoute && roomWorldRoute[2] === 'world' && (method === 'PUT' || method === 'POST')) return await handleRoomWorldPut(request, env, roomWorldRoute[1]);
+    if (roomWorldRoute && roomWorldRoute[2] === 'turn-ready' && method === 'POST') return await handleRoomTurnReady(request, env, roomWorldRoute[1]);
+    if (roomWorldRoute && roomWorldRoute[2] === 'advance' && method === 'POST') return await handleRoomAdvance(request, env, roomWorldRoute[1]);
     const roomRoute = route.match(/^rooms\/([A-HJ-NP-Z2-9]{6})(?:\/(ready|leave))?$/);
     if (roomRoute && method === 'GET' && !roomRoute[2]) return await handleRoomState(request, env, roomRoute[1]);
     if (roomRoute && method === 'POST' && roomRoute[2] === 'ready') return await handleRoomReady(request, env, roomRoute[1]);
