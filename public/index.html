@@ -2824,5 +2824,120 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
 })();
 </script>
 
+<script>
+/* ORDEN MUNDIAL · MERCADO AUTÓNOMO DE MATERIAS PRIMAS Y LOGÍSTICA */
+(()=>{
+ 'use strict';
+ const S=window.omCapitalMarketsV1, fx=window.omFX;
+ if(!S||!fx||window.omCommodityExchangeV1)return;
+ window.omCommodityExchangeV1=true;
+ const $=id=>document.getElementById(id);
+ const num=v=>Number(v)||0;
+ const money=v=>num(v).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:3});
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const country=()=>{try{return currentCountry||'Argentina'}catch(e){return 'Argentina'}};
+ const turnNo=()=>{try{return Number(turn)||0}catch(e){return 0}};
+ const countriesList=()=>{try{return Object.keys(countries||{}).filter(Boolean)}catch(e){return ['Argentina','Brasil','China','Estados Unidos','Alemania','India','Rusia']}};
+ const companies=()=>S.companies||[];
+ const getCompany=id=>companies().find(c=>String(c.id)===String(id));
+ const resources={
+  crude:{label:'Petróleo crudo',sector:'Petróleo y gas',unit:.075},
+  gas:{label:'Gas natural',sector:'Petróleo y gas',unit:.052},
+  minerals:{label:'Minerales industriales',sector:'Minería',unit:.038},
+  lithium:{label:'Litio',sector:'Minería',unit:.095},
+  food:{label:'Alimentos',sector:'Agricultura',unit:.022},
+  uranium:{label:'Uranio',sector:'Minería',unit:.14},
+  chips:{label:'Semiconductores',sector:'Tecnología',unit:.19}
+ };
+ S.commodityOrders=Array.isArray(S.commodityOrders)?S.commodityOrders:[];
+ S.commodityHistory=Array.isArray(S.commodityHistory)?S.commodityHistory:[];
+ S.commodityStocks=S.commodityStocks||{};
+ S.lastAiCommodityTurn=Number.isFinite(Number(S.lastAiCommodityTurn))?Number(S.lastAiCommodityTurn):-1;
+ S.commoditySeq=num(S.commoditySeq)||1;
+ function log(title,text){const row={id:S.commoditySeq++,turn:turnNo(),date:$('date')?.textContent||('Turno '+turnNo()),title,text};S.commodityHistory.unshift(row);S.commodityHistory=S.commodityHistory.slice(0,100);S.corporateLog=S.corporateLog||[];S.corporateLog.unshift({turn:turnNo(),title,text});S.corporateLog=S.corporateLog.slice(0,100);if(typeof addNews==='function'&&[country()].includes(country()))addNews(title,text);}
+ function stockFor(c){if(!S.commodityStocks[c])S.commodityStocks[c]={crude:120,gas:100,minerals:110,lithium:65,food:160,uranium:35,chips:30};return S.commodityStocks[c]}
+ function currencyOf(c){return fx.countryCurrency?.[c]||({Argentina:'ARS',Brasil:'BRL',China:'CNY','Estados Unidos':'USD',Alemania:'EUR',Francia:'EUR',India:'INR',Rusia:'RUB',Japón:'JPY'}[c]||'USD')}
+ function companyCurrencyOptions(){return Object.entries(fx.currencies||{}).filter(([k])=>!k.startsWith('N')).map(([k,v])=>`<option value="${esc(k)}">${esc(k)} · ${esc(v.name||k)}</option>`).join('')}
+ function logisticsCompanies(c){return companies().filter(x=>x.country===c&&/logística|transporte|comercio|distribución/i.test(String(x.sector||'')+' '+String(x.name||'')))}
+ function createAILogistics(c){let existing=logisticsCompanies(c)[0];if(existing)return existing;const id='EQ'+(num(S.nextId)||1);S.nextId=(num(S.nextId)||1)+1;const cap=2.5,shares=1000000,co={id,country:c,name:(c==='China'?'Sino':'Global')+' Logistics Network',sector:'Transporte y logística',capital:cap,marketCap:cap,sharesOutstanding:shares,price:cap*1000,founder:c,holdings:{},floatShares:shares*.3,createdTurn:turnNo(),lastPrice:cap*1000,change:0,profit:0,totalDividends:0,aiCreated:true,listed:true};co.holdings[c]=shares*.7;S.companies.push(co);return co;}
+ function companySectorImpact(c,resourceKey){if(!c)return 1;const wanted=resources[resourceKey]?.sector||'';const sector=String(c.sector||'').toLowerCase();if(sector===wanted.toLowerCase())return 1.7;if(resourceKey==='crude'||resourceKey==='gas')return /energ|petrol|oil/.test(sector)?1.5:0.7;if(resourceKey==='food')return /agric|aliment/.test(sector)?1.5:0.7;if(resourceKey==='chips')return /tecnolog|telecom|semiconductor/.test(sector)?1.6:0.65;if(resourceKey==='minerals'||resourceKey==='lithium'||resourceKey==='uranium')return /minería|mining|energ/.test(sector)?1.55:0.7;return 1;}
+ function bump(c,pct){if(!c)return;const old=num(c.price)||.1;c.lastPrice=old;c.price=Math.max(.1,old*(1+pct/100));c.change=(c.price-old)/old*100;c.marketCap=c.price*num(c.sharesOutstanding)/1e9;c.lastCommodityTurn=turnNo();}
+ function countryCurrencyList(){return Object.keys(fx.currencies||{}).filter(k=>!k.startsWith('N'))}
+ function addOrder({buyer,seller,resource,qty,currency,logisticsId,proposedLogisticsId,origin,status='Pendiente',dueTurn=turnNo()+1}){
+  const o={id:'CMD'+Date.now()+Math.floor(Math.random()*99999),buyer,seller,resource,qty,currency,logisticsId:logisticsId||null,proposedLogisticsId:proposedLogisticsId||null,origin:origin||'Solicitud comercial',status,createdTurn:turnNo(),dueTurn,unitPrice:resources[resource].unit*(.88+Math.random()*.24),lastUpdateTurn:turnNo()};S.commodityOrders.unshift(o);return o;
+ }
+ function aiCommodityDemand(){
+  if(S.lastAiCommodityTurn===turnNo()||turnNo()-S.lastAiCommodityTurn<2)return;
+  S.lastAiCommodityTurn=turnNo();
+  if(Math.random()>.78)return;
+  const seller=country(),buyers=countriesList().filter(c=>c!==seller);if(!buyers.length)return;
+  const buyer=buyers[Math.floor(Math.random()*buyers.length)];
+  if(S.commodityOrders.some(o=>o.status==='Pendiente'&&o.buyer===buyer&&o.seller===seller))return;
+  const available=stockFor(seller),keys=Object.keys(resources).filter(k=>num(available[k])>=25);if(!keys.length)return;
+  const resource=keys[Math.floor(Math.random()*keys.length)],qty=Math.min(num(available[resource]),20+Math.floor(Math.random()*41));
+  const buyerCurrency=currencyOf(buyer),preferred=logisticsCompanies(buyer)[0]||createAILogistics(buyer);
+  const order=addOrder({buyer,seller,resource,qty,currency:buyerCurrency,proposedLogisticsId:preferred.id,origin:'Demanda autónoma de '+buyer});
+  order.aiInitiated=true;log('Solicitud internacional de materias primas',buyer+' solicita a '+seller+' la compra de '+qty+' unidades de '+resources[resource].label+'. Propone pagar en '+buyerCurrency+' y ofrece a '+preferred.name+' como operador logístico.');
+ }
+ function priceUSD(o){return num(o.qty)*num(o.unitPrice)}
+ function convertValue(usd,currency){const c=fx.currencies?.[currency];return c?usd*num(c.perUSD):usd}
+ function decide(id,accept){const o=S.commodityOrders.find(x=>x.id===id&&x.status==='Pendiente');if(!o)return;const sellerStock=stockFor(o.seller),sellerIsPlayer=o.seller===country(),buyerIsPlayer=o.buyer===country();if(!accept){o.status='Rechazada';o.lastUpdateTurn=turnNo();log('Oferta de materias primas rechazada',(sellerIsPlayer?o.buyer:o.seller)+' rechazó la operación de '+resources[o.resource].label+' con '+o.qty+' unidades.');persist();renderIfOpen();return;}
+  if(sellerIsPlayer&&num(sellerStock[o.resource])<o.qty){return notify('No hay inventario suficiente para cumplir la entrega.');}
+  if(buyerIsPlayer){const total=priceUSD(o);if(num(budget)<total)return notify('Presupuesto insuficiente para comprar estas materias primas.');budget-=total;const el=$('budget');if(el)el.textContent='$'+num(budget).toFixed(1)+' mil M';}
+  let logisticId=$('omCommodityLogistics_'+o.id)?.value||o.logisticsId||o.proposedLogisticsId;
+  const logistic=getCompany(logisticId);
+  if(!logistic)return notify('Elegí una empresa logística válida para completar la operación.');
+  o.logisticsId=logistic.id;o.status='En tránsito';o.acceptedTurn=turnNo();o.dueTurn=turnNo()+1;o.lastUpdateTurn=turnNo();
+  const amount=priceUSD(o),logisticsFee=amount*.06;
+  bump(logistic,2.2);const sellerCo=companies().filter(c=>c.country===o.seller).sort((a,b)=>companySectorImpact(b,o.resource)-companySectorImpact(a,o.resource))[0];if(sellerCo)bump(sellerCo,1.6*companySectorImpact(sellerCo,o.resource));
+  o.logisticsFee=logisticsFee;o.totalUSD=amount;o.paymentAmount=convertValue(amount,o.currency);
+  log('Contrato de compra de materias primas',o.buyer+' comprará '+o.qty+' unidades de '+resources[o.resource].label+' a '+o.seller+'. Pago: '+o.currency+' '+money(o.paymentAmount)+' (equivalente a USD '+money(amount)+' mil M). Logística: '+logistic.name+'. La cotización de la empresa logística recibió un impulso.');persist();renderIfOpen();
+ }
+ function deliver(o){const sellerStock=stockFor(o.seller),buyerStock=stockFor(o.buyer);if(num(sellerStock[o.resource])<o.qty){o.status='Incumplido';log('Incumplimiento comercial',o.seller+' no pudo entregar '+o.qty+' unidades de '+resources[o.resource].label+' a '+o.buyer+'.');return;}
+  sellerStock[o.resource]=Math.max(0,num(sellerStock[o.resource])-o.qty);buyerStock[o.resource]=num(buyerStock[o.resource])+o.qty;
+  // El ingreso se acredita una sola vez al completar la entrega y se sincroniza
+  // tanto con el presupuesto visible del jugador como con el registro nacional.
+  if(o.seller===country()&&!o.revenueCredited){const revenue=num(o.totalUSD)||priceUSD(o);budget=num(budget)+revenue;o.totalUSD=revenue;o.revenueCredited=true;if(typeof countries==='object'&&countries[o.seller])countries[o.seller].budget=num(countries[o.seller].budget)+revenue;}
+  const el=$('budget');if(el)el.textContent='$'+num(budget).toFixed(1)+' mil M';
+  const logistic=getCompany(o.logisticsId);if(logistic){logistic.profit=num(logistic.profit)+num(o.logisticsFee);bump(logistic,1.25);}
+  companies().filter(c=>c.country===o.seller&&companySectorImpact(c,o.resource)>1).forEach(c=>bump(c,.8));
+  const code=o.currency,cur=fx.currencies?.[code];if(cur){cur.change=num(cur.change)+.08;cur.perUSD=Math.max(.0001,num(cur.perUSD)*.9995);}
+  o.status='Entregada';o.deliveredTurn=turnNo();log('Entrega internacional completada',o.seller+' entregó '+o.qty+' unidades de '+resources[o.resource].label+' a '+o.buyer+'. '+o.buyer+' pagó en '+o.currency+'. '+(o.seller===country()?'Se acreditaron '+money(o.totalUSD)+' mil M al presupuesto nacional. ':'')+(logistic?'La logística estuvo a cargo de '+logistic.name+'.':''));
+ }
+ function resolveAIReplies(){S.commodityOrders.filter(o=>o.status==='Pendiente'&&o.seller===country()&&o.buyer!==country()&&!o.aiInitiated&&num(o.dueTurn)<=turnNo()).forEach(o=>{const stock=stockFor(o.seller);if(num(stock[o.resource])<o.qty){o.status='Rechazada';log('Oferta comercial rechazada',o.buyer+' no aceptó la oferta: inventario insuficiente o condiciones no competitivas.');return;}const relation=num(countries?.[o.buyer]?.relation)||50;const chance=Math.max(.18,Math.min(.88,.48+(relation-50)/180+(o.currency===currencyOf(o.seller)?.08:0)));if(Math.random()<chance){o.status='En tránsito';o.acceptedTurn=turnNo();o.dueTurn=turnNo()+1;o.totalUSD=priceUSD(o);o.paymentAmount=convertValue(o.totalUSD,o.currency);const logistic=getCompany(o.logisticsId)||logisticsCompanies(o.seller)[0];if(logistic){o.logisticsId=logistic.id;o.logisticsFee=o.totalUSD*.06;bump(logistic,2.1);}const supplier=companies().filter(c=>c.country===o.seller).sort((a,b)=>companySectorImpact(b,o.resource)-companySectorImpact(a,o.resource))[0];if(supplier)bump(supplier,1.4*companySectorImpact(supplier,o.resource));log('Contrato de exportación aceptado',o.buyer+' aceptó comprar '+o.qty+' unidades de '+resources[o.resource].label+' a '+o.seller+'. Moneda: '+o.currency+'. Logística: '+(logistic?.name||'operador contratado')+'.');}else{o.status='Rechazada';log('Oferta comercial rechazada',o.buyer+' rechazó la oferta de '+o.qty+' unidades de '+resources[o.resource].label+'.');}});}
+ function monthly(){if(S.lastCommodityProcessTurn===turnNo())return;S.lastCommodityProcessTurn=turnNo();resolveAIReplies();S.commodityOrders.filter(o=>o.status==='En tránsito'&&num(o.dueTurn)<=turnNo()).forEach(deliver);if(turnNo()%3===0){countriesList().forEach(c=>{const st=stockFor(c);Object.keys(resources).forEach(k=>{st[k]=Math.min(500,num(st[k])+ (k==='crude'||k==='gas'?4:k==='food'?7:3));});});}aiCommodityDemand();persist();renderIfOpen();}
+ function persist(){try{if(typeof saveGame==='function')saveGame(true);else localStorage.setItem('omCapitalMarketsV1',JSON.stringify(S));}catch(e){}}
+ function logisticsOptions(o){const local=logisticsCompanies(o.seller),buyerLocal=o.buyer===country()?logisticsCompanies(o.buyer):[],proposed=getCompany(o.proposedLogisticsId);const choices=[...local,...buyerLocal];if(proposed&&!choices.some(c=>c.id===proposed.id))choices.push(proposed);const unique=[...new Map(choices.map(c=>[String(c.id),c])).values()];return unique.map(c=>`<option value="${esc(c.id)}" ${c.id===o.proposedLogisticsId?'selected':''}>${esc(c.name)} (${esc(c.country)})</option>`).join('')||'<option value="">Sin empresa logística disponible</option>';}
+ function pendingHtml(){return S.commodityOrders.filter(o=>o.status==='Pendiente'&&(o.seller===country()||o.buyer===country())).map(o=>{const buyerSide=o.buyer===country(),other=buyerSide?o.seller:o.buyer;return `<div class="news"><small>SOLICITUD ${buyerSide?'DE COMPRA':'DE VENTA'} · ${esc(o.origin)}</small><p><b>${esc(o.buyer)}</b> solicita a <b>${esc(o.seller)}</b> ${o.qty} unidades de ${esc(resources[o.resource].label)}.</p><p>Precio estimado: USD ${money(priceUSD(o))} mil M · Moneda propuesta: <b>${esc(o.currency)}</b> · Respuesta pendiente.</p><div class="field"><label>Empresa logística encargada</label><select id="omCommodityLogistics_${esc(o.id)}">${logisticsOptions(o)}</select></div><div class="field"><label>Moneda de liquidación</label><select id="omCommodityCurrency_${esc(o.id)}">${companyCurrencyOptions().replace('value="'+esc(o.currency)+'"','value="'+esc(o.currency)+'" selected')}</select></div>${!buyerSide?`<button class="primary" onclick="omCommodityDecide('${esc(o.id)}',true)">Aceptar compra</button>`:`<button class="primary" onclick="omCommodityDecide('${esc(o.id)}',true)">Confirmar compra</button>`} <button onclick="omCommodityDecide('${esc(o.id)}',false)">Rechazar</button></div>`}).join('')||'<p class="muted">No hay solicitudes pendientes. La IA puede enviar propuestas al avanzar los meses.</p>';}
+ function renderPanel(){const me=country(),st=stockFor(me),curr=currencyOf(me),localLog=logisticsCompanies(me),others=countriesList().filter(c=>c!==me);const stocks=Object.entries(resources).map(([k,v])=>`<div class="mini"><span>${esc(v.label)}</span><strong>${money(st[k]||0)} unidades</strong></div>`).join('');const companiesOptions=localLog.map(c=>`<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.sector)}</option>`).join('');const orders=S.commodityOrders.filter(o=>o.seller===me||o.buyer===me).slice(0,15).map(o=>`<div class="om-row"><b>${esc(o.buyer)} → ${esc(o.seller)}</b><span>${esc(resources[o.resource]?.label||o.resource)} · ${o.qty} unidades</span><small>${esc(o.status)} · ${esc(o.currency)} · ${o.logisticsId?esc(getCompany(o.logisticsId)?.name||'Empresa logística'): 'Logística pendiente'}</small></div>`).join('')||'<p class="muted">Todavía no hay operaciones.</p>';
+  return `<div class="om-hero"><div><span class="om-kicker">MERCADO GLOBAL · MATERIAS PRIMAS</span><h2>Comercio internacional de recursos</h2><p>Los gobiernos y las empresas de IA generan solicitudes de compra. Elegí si aceptás, en qué moneda cobrás y qué compañía logística transporta la carga. Las operaciones mueven inventarios, ingresos y cotizaciones bursátiles.</p></div><div class="om-hero-badge">⛴️ Mercado de commodities</div></div><h3>Inventario comercial de ${esc(me)}</h3><div class="mini-grid">${stocks}</div><h3>Solicitudes de la IA y propuestas pendientes</h3>${pendingHtml()}<h3>Enviar una oferta de exportación</h3><div class="two"><div class="field"><label>País comprador</label><select id="omCommodityBuyer">${others.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div><div class="field"><label>Materia prima</label><select id="omCommodityResource">${Object.entries(resources).map(([k,v])=>`<option value="${k}">${esc(v.label)}</option>`).join('')}</select></div><div class="field"><label>Cantidad</label><input id="omCommodityQty" type="number" min="1" max="500" value="50"></div><div class="field"><label>Moneda solicitada</label><select id="omCommodityCurrency">${companyCurrencyOptions()}</select></div><div class="field"><label>Empresa logística local</label><select id="omCommodityLogistics">${companiesOptions||'<option value="">No hay empresa local</option>'}</select></div></div><button class="primary" onclick="omCommodityOffer()">Enviar oferta de exportación</button><h3>Operaciones comerciales recientes</h3><div class="om-list">${orders}</div><h3>Historial de comercio</h3>${S.commodityHistory.slice(0,12).map(x=>`<div class="news"><small>${esc(x.date)} · ${esc(x.title)}</small><p>${esc(x.text)}</p></div>`).join('')||'<p class="muted">El historial aparecerá cuando se generen operaciones.</p>'}`;
+ }
+ window.omCommodityDecide=function(id,accept){const o=S.commodityOrders.find(x=>x.id===id);if(!o)return;const currency=$('omCommodityCurrency_'+id)?.value;if(currency)o.currency=currency;decide(id,accept);};
+ window.omCommodityOffer=function(){const buyer=$('omCommodityBuyer')?.value,resource=$('omCommodityResource')?.value,qty=Math.max(1,Math.min(500,Math.floor(num($('omCommodityQty')?.value)||1))),currency=$('omCommodityCurrency')?.value||currencyOf(buyer),logisticsId=$('omCommodityLogistics')?.value;if(!buyer||!resources[resource])return notify('Completá los datos de la oferta.');if(num(stockFor(country())[resource])<qty)return notify('No hay inventario suficiente para ofrecer esa cantidad.');const o=addOrder({buyer,seller:country(),resource,qty,currency,logisticsId,origin:'Oferta de exportación del gobierno'});o.aiInitiated=false;log('Oferta de exportación enviada',country()+' ofreció a '+buyer+' '+qty+' unidades de '+resources[resource].label+', con pago en '+currency+'.');persist();renderIfOpen();notify('Oferta enviada. La IA responderá al avanzar el mes.');};
+ function renderIfOpen(){if(document.querySelector('#nav button.active')?.dataset.section==='Mercado de materias primas')renderSection();}
+ function renderSection(){const body=$('workspaceBody');if(body)body.innerHTML=renderPanel();const title=$('workspaceTitle');if(title)title.textContent='Mercado de materias primas';}
+ const oldSelect=window.selectSection;
+ function openCommodityMarket(){
+  const nav=$('nav');if(nav)nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.section==='Mercado de materias primas'));
+  const body=$('workspaceBody'),title=$('workspaceTitle');
+  if(title)title.textContent='Mercado de materias primas';
+  if(body){body.innerHTML=renderPanel();body.classList.add('om-workspace');}
+ }
+ window.selectSection=function(section){if(section==='Mercado de materias primas'){openCommodityMarket();return;}return oldSelect?.apply(this,arguments)};
+ function addNav(){
+  const nav=$('nav');if(!nav)return;
+  let b=[...nav.querySelectorAll('button')].find(x=>x.dataset.section==='Mercado de materias primas');
+  if(!b){b=document.createElement('button');b.dataset.section='Mercado de materias primas';b.innerHTML='<span class="ico">🛢️</span>Mercado de materias primas';nav.appendChild(b);}
+  b.type='button';b.onclick=function(e){e.preventDefault();e.stopPropagation();openCommodityMarket();};
+ }
+ document.addEventListener('click',function(e){const b=e.target.closest('#nav button[data-section="Mercado de materias primas"]');if(!b)return;e.preventDefault();e.stopPropagation();openCommodityMarket();},true);
+ addNav();
+ const next=$('nextTurn');if(next){const prior=next.onclick;next.onclick=function(...args){const result=prior?.apply(this,args);monthly();persist();return result;};}
+ const oldCollect=window.collectGame;if(typeof oldCollect==='function')window.collectGame=function(){const d=oldCollect.apply(this,arguments);d.omCapitalMarketsV1=JSON.parse(JSON.stringify(S));return d;};
+ const oldRestore=window.restoreGame;if(typeof oldRestore==='function')window.restoreGame=function(d){oldRestore.apply(this,arguments);if(d?.omCapitalMarketsV1){Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,JSON.parse(JSON.stringify(d.omCapitalMarketsV1)));S.commodityOrders=S.commodityOrders||[];S.commodityHistory=S.commodityHistory||[];S.commodityStocks=S.commodityStocks||{};}};
+ window.omCommodityMarket={state:()=>JSON.parse(JSON.stringify({orders:S.commodityOrders,stocks:S.commodityStocks,history:S.commodityHistory})),monthly,render:renderPanel};
+})();
+
+</script>
 </body>
 </html>
