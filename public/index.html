@@ -2914,24 +2914,11 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  }
  window.omCommodityDecide=function(id,accept){const o=S.commodityOrders.find(x=>x.id===id);if(!o)return;const currency=$('omCommodityCurrency_'+id)?.value;if(currency)o.currency=currency;decide(id,accept);};
  window.omCommodityOffer=function(){const buyer=$('omCommodityBuyer')?.value,resource=$('omCommodityResource')?.value,qty=Math.max(1,Math.min(500,Math.floor(num($('omCommodityQty')?.value)||1))),currency=$('omCommodityCurrency')?.value||currencyOf(buyer),logisticsId=$('omCommodityLogistics')?.value;if(!buyer||!resources[resource])return notify('Completá los datos de la oferta.');if(num(stockFor(country())[resource])<qty)return notify('No hay inventario suficiente para ofrecer esa cantidad.');const o=addOrder({buyer,seller:country(),resource,qty,currency,logisticsId,origin:'Oferta de exportación del gobierno'});o.aiInitiated=false;log('Oferta de exportación enviada',country()+' ofreció a '+buyer+' '+qty+' unidades de '+resources[resource].label+', con pago en '+currency+'.');persist();renderIfOpen();notify('Oferta enviada. La IA responderá al avanzar el mes.');};
- function renderIfOpen(){if(document.querySelector('#nav button.active')?.dataset.section==='Mercado de materias primas')renderSection();}
- function renderSection(){const body=$('workspaceBody');if(body)body.innerHTML=renderPanel();const title=$('workspaceTitle');if(title)title.textContent='Mercado de materias primas';}
+ function renderIfOpen(){if(document.querySelector('#nav button.active')?.dataset.section==='Mercado mundial')renderSection();}
+ function renderSection(){const body=$('workspaceBody');if(!body)return;const old=body.querySelector('#omCommodityEmbeddedPanel');if(old)old.remove();const panel=document.createElement('section');panel.id='omCommodityEmbeddedPanel';panel.style.cssText='margin-top:28px;padding-top:22px;border-top:1px solid var(--line,#34445a)';panel.innerHTML=renderPanel();body.appendChild(panel);const title=$('workspaceTitle');if(title)title.textContent='Mercado mundial';}
  const oldSelect=window.selectSection;
- function openCommodityMarket(){
-  const nav=$('nav');if(nav)nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.section==='Mercado de materias primas'));
-  const body=$('workspaceBody'),title=$('workspaceTitle');
-  if(title)title.textContent='Mercado de materias primas';
-  if(body){body.innerHTML=renderPanel();body.classList.add('om-workspace');}
- }
- window.selectSection=function(section){if(section==='Mercado de materias primas'){openCommodityMarket();return;}return oldSelect?.apply(this,arguments)};
- function addNav(){
-  const nav=$('nav');if(!nav)return;
-  let b=[...nav.querySelectorAll('button')].find(x=>x.dataset.section==='Mercado de materias primas');
-  if(!b){b=document.createElement('button');b.dataset.section='Mercado de materias primas';b.innerHTML='<span class="ico">🛢️</span>Mercado de materias primas';nav.appendChild(b);}
-  b.type='button';b.onclick=function(e){e.preventDefault();e.stopPropagation();openCommodityMarket();};
- }
- document.addEventListener('click',function(e){const b=e.target.closest('#nav button[data-section="Mercado de materias primas"]');if(!b)return;e.preventDefault();e.stopPropagation();openCommodityMarket();},true);
- addNav();
+ function openCommodityMarket(){window.selectSection?.('Mercado mundial');}
+ window.selectSection=function(section){if(section==='Mercado de materias primas')section='Mercado mundial';const result=oldSelect?.apply(this,[section,...Array.prototype.slice.call(arguments,1)]);if(section==='Mercado mundial')renderSection();return result;};
  const next=$('nextTurn');if(next){const prior=next.onclick;next.onclick=function(...args){const result=prior?.apply(this,args);monthly();persist();return result;};}
  const oldCollect=window.collectGame;if(typeof oldCollect==='function')window.collectGame=function(){const d=oldCollect.apply(this,arguments);d.omCapitalMarketsV1=JSON.parse(JSON.stringify(S));return d;};
  const oldRestore=window.restoreGame;if(typeof oldRestore==='function')window.restoreGame=function(d){oldRestore.apply(this,arguments);if(d?.omCapitalMarketsV1){Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,JSON.parse(JSON.stringify(d.omCapitalMarketsV1)));S.commodityOrders=S.commodityOrders||[];S.commodityHistory=S.commodityHistory||[];S.commodityStocks=S.commodityStocks||{};}};
