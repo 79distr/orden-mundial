@@ -1,14 +1,13 @@
-ORDEN MUNDIAL - EXPANSION CRISIS, POLITICA E INFRAESTRUCTURA
+ORDEN MUNDIAL - Consejo de Asesores con medidas específicas
 
-Actualizacion del archivo publico:
-- Reemplazar public/index.html por el incluido en este paquete.
-- Mantener intactos los directorios functions, _routes.json, configuracion de Pages y el binding OM_KV que ya existan en el repositorio.
-- No borrar el namespace KV ni los datos de partidas.
+Instalación:
+1. Reemplazar public/index.html en el repositorio por el archivo incluido.
+2. Mantener las Functions, configuración de Cloudflare y el binding KV existentes.
+3. No borrar el KV ni las partidas guardadas.
 
 Novedades:
-1. Crisis economicas mundiales: recesion, deuda, energia, alimentos y expansion industrial; shocks a precios y respuestas fiscales nacionales.
-2. Gobernabilidad: pacto nacional y convocatoria de elecciones anticipadas, integrados en Politica interna.
-3. Infraestructura internacional: puertos, ferrocarriles, interconexiones energeticas, gasoductos/oleoductos y corredores digitales; cofinanciacion bilateral, progreso mensual y rentabilidad al operar. La IA tambien inicia proyectos autonomamente.
-
-La expansion se guarda dentro del guardado de partida bajo omExpansion2026.
-Comprobacion realizada: sintaxis de los 24 bloques JavaScript y estructura del ZIP. No se ha realizado una prueba completa de navegador ni de partida desplegada.
+- Recomendación bursátil concreta para evaluar la compra de acciones de Sino Logistics Network (China).
+- Compra con confirmación previa, usando el sistema bursátil existente.
+- Preparación de una propuesta fiscal en el panel Economía; el jugador debe revisarla y aprobarla.
+- Medida de defensa de disuasión/preparación por USD 5 mil M, con confirmación y usando la función existente.
+- Los asesores siguen siendo no vinculantes.

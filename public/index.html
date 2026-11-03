@@ -1409,7 +1409,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
  const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,Number(v)||0));
  const fmt=v=>(Number(v)||0).toFixed(2);
  const dateLabel=()=> $('date')?.textContent||('Turno '+turn);
- const sectors={petroleo:{label:'Petróleo',priceKey:'petroleo',base:4.2},gas:{label:'Gas natural',priceKey:'gas',base:2.8},mineria:{label:'Minería y minerales',priceKey:'minerales',base:2.4},agro:{label:'Agricultura y alimentos',priceKey:'alimentos',base:1.9},uranio:{label:'Uranio',priceKey:'uranio',base:3.6},tecnologia:{label:'Tecnología y manufacturas',priceKey:'tecnologia',base:5.1},industria:{label:'Industria manufacturera',priceKey:'tecnologia',base:3.4},energia:{label:'Energía eléctrica',priceKey:'gas',base:2.3}};
+ const sectors={petroleo:{label:'Petróleo',priceKey:'petroleo',base:4.2},gas:{label:'Gas natural',priceKey:'gas',base:2.8},mineria:{label:'Minería y minerales',priceKey:'minerales',base:2.4},agro:{label:'Agricultura y alimentos',priceKey:'alimentos',base:1.9},uranio:{label:'Uranio',priceKey:'uranio',base:3.6},semiconductores:{label:'Semiconductores',priceKey:'chips',base:7.8},tecnologia:{label:'Tecnología y manufacturas',priceKey:'tecnologia',base:5.1},industria:{label:'Industria manufacturera',priceKey:'tecnologia',base:3.4},energia:{label:'Energía eléctrica',priceKey:'gas',base:2.3}};
  let omProductive={projects:[],offers:[],log:[],seq:1,referendumResults:[],satellites:[]};
  function ensure(){if(!omProductive||typeof omProductive!=='object')omProductive={projects:[],offers:[],log:[],seq:1,referendumResults:[],satellites:[]};['projects','offers','log','referendumResults','satellites'].forEach(k=>{if(!Array.isArray(omProductive[k]))omProductive[k]=[]});if(!omProductive.seq)omProductive.seq=1;if(!Number.isFinite(Number(omProductive.aiLastOfferTurn)))omProductive.aiLastOfferTurn=-99;}
  function countryOpts(){return Object.keys(countries).sort((a,b)=>a.localeCompare(b,'es')).map(n=>`<option value="${esc(n)}">${esc(countries[n].flag||'🏳️')} ${esc(n)}</option>`).join('')}
@@ -1427,12 +1427,13 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
  function processProductive(){
    ensure();
    omProductive.offers.filter(o=>o.status==='Pendiente'&&o.country!==currentCountry&&o.dueTurn<=turn).forEach(o=>{const c=countries[o.country],rel=Number(c?.relation??50),prob=clamp(58+(rel-50)*.45-(o.share-20)*.8,12,88)/100;if(Math.random()<prob){if(activateProdOffer(o))addNews('IA · Aprobación de inversión',o.country+' aceptó la propuesta de '+o.investor+' en '+o.sectorLabel+'.');}else{o.status='Rechazada';o.detail='El gobierno consideró excesiva la participación solicitada o priorizó capital nacional.';addNews('IA · Rechazo de inversión',o.country+' rechazó la propuesta de '+o.investor+' para '+o.sectorLabel+'.');}});
-   const resourceMap={petroleo:'petroleo',gas:'gas',mineria:'minerales',agro:'alimentos',uranio:'uranio',tecnologia:'tecnologia',industria:'tecnologia',energia:'gas'};
+   const resourceMap={petroleo:'petroleo',gas:'gas',mineria:'minerales',agro:'alimentos',uranio:'uranio',semiconductores:'chips',tecnologia:'tecnologia',industria:'tecnologia',energia:'gas'};
    omProductive.projects.forEach(p=>{if(p.status==='En construcción'&&turn>=p.dueTurn){p.status='Produciendo';addNews('Proyecto productivo operativo',p.country+' puso en marcha un proyecto de '+p.sectorLabel+'.');}});
    omProductive.projects.filter(p=>p.status==='Produciendo').forEach(p=>{
      const key=resourceMap[p.sector];if(!key)return;
      const world=window.omWorld||(window.omWorld={stocks:{}});world.stocks=world.stocks||{};world.stocks[p.country]=world.stocks[p.country]||{petroleo:5,gas:5,alimentos:5,minerales:5,tecnologia:2,uranio:1};
      world.stocks[p.country][key]=(Number(world.stocks[p.country][key])||0)+Math.max(0,Number(p.output)||0);
+     if(p.sector==='semiconductores'){const market=window.omCapitalMarketsV1;if(market){market.commodityStocks=market.commodityStocks||{};market.commodityStocks[p.country]=market.commodityStocks[p.country]||{crude:120,gas:100,minerals:110,lithium:65,food:160,uranium:35,chips:30};market.commodityStocks[p.country].chips=(Number(market.commodityStocks[p.country].chips)||0)+Math.max(0,Number(p.output)||0);}}
      p.lastProduction=Number(p.output)||0;p.lastProductionTurn=turn;
    });
  }
@@ -1984,7 +1985,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
  const player=()=>{try{return currentCountry||'Argentina'}catch(e){return 'Argentina'}};
  const turnNo=()=>{try{return Number(turn)||0}catch(e){return 0}};
  const money=v=>num(v).toLocaleString('es-AR',{maximumFractionDigits:3});
- const sectors=['Petróleo y gas','Minería','Energía','Agricultura','Alimentos','Industria','Tecnología','Defensa','Transporte y logística','Finanzas','Telecomunicaciones','Farmacéutica','Biotecnología','Automotriz','Aeroespacial','Construcción','Comercio y distribución'];
+ const sectors=['Petróleo y gas','Minería','Energía','Agricultura','Alimentos','Industria','Tecnología','Semiconductores','Defensa','Transporte y logística','Finanzas','Telecomunicaciones','Farmacéutica','Biotecnología','Automotriz','Aeroespacial','Construcción','Comercio y distribución'];
  const countriesList=()=>{try{return Object.keys(countries||{}).filter(Boolean)}catch(e){return ['Argentina','Brasil','China','Estados Unidos','Qatar','Alemania','India','Rusia']} };
  function ensure(){
   if(S.tradeLog&&S.tradeLog.length>300)S.tradeLog=S.tradeLog.slice(-300);
@@ -2010,16 +2011,18 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
  function getCompany(id){return S.companies.find(c=>c.id===id)}
  function playerShares(c,owner=player()){return num(c.holdings&&c.holdings[owner])}
  function fmtCompany(c){return `${esc(c.name)} · ${esc(c.country)} · ${esc(c.sector)}`}
- const sectorAliases={petroleo:'Petróleo y gas',gas:'Petróleo y gas',mineria:'Minería',agro:'Agricultura',alimentos:'Alimentos',uranio:'Minería',tecnologia:'Tecnología',industria:'Industria',energia:'Energía'};
+ const sectorAliases={petroleo:'Petróleo y gas',gas:'Petróleo y gas',mineria:'Minería',agro:'Agricultura',alimentos:'Alimentos',uranio:'Minería',tecnologia:'Tecnología',semiconductores:'Semiconductores',industria:'Industria',energia:'Energía'};
  function sectorForProject(key,label){return sectorAliases[key]||sectors.find(x=>x.toLowerCase()===String(label||'').toLowerCase())||label||'Industria'}
  function companyMatchesSector(companySector,sector){
   const a=String(companySector||'').toLowerCase(),b=String(sector||'').toLowerCase();
   if(a===b)return true;
+  if((a.includes('semiconductor')||a.includes('microchip')||a.includes('chip'))&&(b.includes('semiconductor')||b==='tecnología'))return true;
   const groups={
    'petróleo y gas':['petróleo y gas','energía'], 'gas':['petróleo y gas','energía'],
    'minería':['minería'], 'uranio':['minería','energía'],
    'agricultura':['agricultura','alimentos'], 'alimentos':['alimentos','agricultura'],
-   'tecnología':['tecnología','telecomunicaciones','biotecnología','aeroespacial'],
+   'tecnología':['tecnología','telecomunicaciones','biotecnología','aeroespacial','semiconductores'],
+   'semiconductores':['semiconductores','tecnología'],
    'industria':['industria','automotriz','construcción','transporte y logística'],
    'energía':['energía','petróleo y gas']
   };
@@ -2044,7 +2047,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   const active=productive.filter(p=>p.country===country).map(p=>sectorForProject(p.sector,p.sectorLabel));
   let sector=active.length&&Math.random()<.58?active[Math.floor(Math.random()*active.length)]:sectorWeights[Math.floor(Math.random()*sectorWeights.length)];
   const prefixes=['Nacional','Desarrollo','Unión','Horizonte','Andes','Continental','Federal','Nova','Global','Industrial','Innovación','Progreso'];
-  const suffixes={'Petróleo y gas':['Petrolera','Energía','Oil & Gas'],'Minería':['Minerales','Mining','Recursos'],'Energía':['Energía','Power','Renovables'],'Agricultura':['Agro','Agrícola','Campos'],'Alimentos':['Alimentos','Foods','Nutrición'],'Industria':['Industrias','Manufacturas','Industrial'],'Tecnología':['Tech','Digital','Sistemas'],'Defensa':['Defensa','AeroSystems','Tecnología Militar'],'Transporte y logística':['Logística','Transportes','Cargo'],'Finanzas':['Financiera','Capital','Inversiones'],'Telecomunicaciones':['Telecom','Conectividad','Comunicaciones'],'Farmacéutica':['Pharma','Laboratorios','Salud'],'Biotecnología':['BioTech','Biociencias','Genética'],'Automotriz':['Motors','Automotriz','Movilidad'],'Aeroespacial':['Aeroespacial','AeroSystems','Aviation'],'Construcción':['Construcciones','Infraestructura','Obras'],'Comercio y distribución':['Comercial','Distribución','Retail']};
+  const suffixes={'Petróleo y gas':['Petrolera','Energía','Oil & Gas'],'Minería':['Minerales','Mining','Recursos'],'Energía':['Energía','Power','Renovables'],'Agricultura':['Agro','Agrícola','Campos'],'Alimentos':['Alimentos','Foods','Nutrición'],'Industria':['Industrias','Manufacturas','Industrial'],'Tecnología':['Tech','Digital','Sistemas'],'Semiconductores':['Semiconductores','Microchips','Silicon'],'Defensa':['Defensa','AeroSystems','Tecnología Militar'],'Transporte y logística':['Logística','Transportes','Cargo'],'Finanzas':['Financiera','Capital','Inversiones'],'Telecomunicaciones':['Telecom','Conectividad','Comunicaciones'],'Farmacéutica':['Pharma','Laboratorios','Salud'],'Biotecnología':['BioTech','Biociencias','Genética'],'Automotriz':['Motors','Automotriz','Movilidad'],'Aeroespacial':['Aeroespacial','AeroSystems','Aviation'],'Construcción':['Construcciones','Infraestructura','Obras'],'Comercio y distribución':['Comercial','Distribución','Retail']};
   let name='';for(let tries=0;tries<30;tries++){const pre=prefixes[Math.floor(Math.random()*prefixes.length)],suf=(suffixes[sector]||[sector])[Math.floor(Math.random()*(suffixes[sector]||[sector]).length)];name=country.split(' ')[0]+' '+pre+' '+suf;if(!S.companies.some(c=>c.country===country&&c.name===name))break;name='';}if(!name)return null;
   const state=countries?.[country]||{},gdp=num(state.gdp||state.GDP),budgetNow=num(state.budget||state.treasury);
   const capital=Math.max(.35,Math.min(12,(gdp?gdp*.0008:0)+(budgetNow?budgetNow*.025:0)+.5+Math.random()*2.5));
@@ -2258,6 +2261,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
    <h3>Resolución de candidaturas</h3>${bids.slice().reverse().map(x=>`<div class="news"><small>${esc(x.date)} · ${esc(x.status)}</small><p><b>${esc(x.type)}</b> · ${esc(x.country)} · Año propuesto: ${x.year||'—'}</p><p>${esc(x.note||'La candidatura está en evaluación.')}</p></div>`).join('')||'<p class="muted">Todavía no presentaste candidaturas.</p>'}
    <h3>Eventos concedidos y preparación</h3>${d.events.filter(x=>x.country===me).map(x=>`<div class="news"><small>${esc(x.status)}</small><p><b>${esc(x.type)}</b> · Fecha: ${esc(x.eventDate)} · Inversión prevista: USD ${money(x.hostCost)} mil M</p>${x.report?`<p><b>Informe final:</b> Campeón: ${esc(x.report.winner)} · Asistencia: ${money(x.report.attendance)} personas · Impacto económico: USD ${money(x.report.impact)} mil M.</p>`:''}</div>`).join('')||'<p class="muted">No hay eventos concedidos.</p>'}
    <h3>Contratos de Fórmula 1</h3>${d.f1Contracts.filter(x=>x.country===me).slice().reverse().map(x=>`<div class="news"><small>${esc(x.status)} · ${x.remainingTurns>0?x.remainingTurns+' meses restantes':'Contrato vencido'}</small><p><b>${esc(x.name)}</b> · Canon anual USD ${money(x.annualFee)} mil M · Vigencia: ${esc(x.startDate)} a ${esc(x.endDate||'por determinar')}.</p>${x.lastRace?`<p><b>Última carrera:</b> ${esc(x.lastRace.date)} · Ganador: ${esc(x.lastRace.winner)} · Público: ${money(x.lastRace.attendance)} · Impacto económico: USD ${money(x.lastRace.impact)} mil M.</p>`:''}${x.status==='expired'?`<button onclick="omF1Renew('${esc(x.id)}')">Renovar por cuatro años</button>`:''}</div>`).join('')||'<p class="muted">No hay contratos de F1.</p>'}
+   <h3>🏆 Mundial de fútbol · calendario internacional</h3>${(d.worldCups||[]).slice().reverse().map(x=>`<div class="news"><small>${esc(x.status)} · ${esc(x.startMonthName)} ${esc(x.year)} – ${esc(x.endMonthName)} ${esc(x.year)}</small><p><b>${esc(x.name)}</b> · Sede: ${esc(x.host||'Sede internacional')}</p>${x.status==='en_curso'?`<p>El torneo está en marcha. La final y el informe económico se publicarán en ${esc(x.endMonthName)}.</p>`:`<p><b>Campeón:</b> ${esc(x.winner)} · <b>Asistencia:</b> ${money(x.attendance)} espectadores · <b>Impacto económico:</b> USD ${money(x.impact)} mil M.</p>`}</div>`).join('')||'<p class="muted">El próximo Mundial aparecerá automáticamente en junio del año correspondiente.</p>'}
    <h3>Informes de carreras y torneos</h3>${d.history.slice(-20).reverse().map(x=>`<div class="news"><small>${esc(x.date)} · ${esc(x.title)}</small><p>${esc(x.text)}</p></div>`).join('')||'<p class="muted">Sin acontecimientos registrados.</p>'}`;
  };
  window.omSportsUpdateYearOptions=function(){const type=document.getElementById('omSportsEventType')?.value||'Mundial de Fútbol',input=document.getElementById('omSportsYear'),hint=document.getElementById('omSportsCalendarHint');if(!input)return;const next=nextEligibleYear(type);input.min=String(next);input.step='4';if(!input.value||Number(input.value)<next||(Number(input.value)-next)%4!==0)input.value=String(next);if(hint)hint.textContent=type==='Mundial de Fútbol'?'La Copa Mundial se disputa cada cuatro años en junio. Próxima edición disponible: '+next+'.':'Los Juegos Olímpicos se disputan cada cuatro años en julio. Próxima edición disponible: '+next+'.'};
@@ -2265,7 +2269,48 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
  window.omSportsBid=function(){const d=D(),type=document.getElementById('omSportsEventType')?.value||'Mundial de Fútbol',yearRequested=Math.floor(n(document.getElementById('omSportsYear')?.value)),minimum=nextEligibleYear(type),cycleAnchor=type==='Mundial de Fútbol'?2026:2028;if(!Number.isFinite(yearRequested)||yearRequested<minimum||(yearRequested-cycleAnchor)%4!==0){notice('Ese año no está disponible. La próxima edición válida es '+minimum+' y se celebra en '+eventMonthName(type)+'.');window.omSportsUpdateYearOptions();return}const guarantee=2;if(d.sportsFund<guarantee){notice('El Ministerio de Deportes necesita al menos USD 2.000 millones para presentar la candidatura.');return}d.sportsFund-=guarantee;const id='SPORT-'+Date.now();d.bids.push({id,country:country(),type,year:yearRequested,guarantee,status:'pending',dueTurn:turnNow()+2,date:dateNow(),note:'Candidatura presentada para '+eventMonthName(type)+' de '+yearRequested+'. La organización internacional evaluará la propuesta en dos meses.'});log('Candidatura deportiva',country()+' presentó una candidatura para organizar '+type+' en '+eventMonthName(type)+' de '+yearRequested+'.');notice('Candidatura enviada para '+eventMonthName(type)+' de '+yearRequested+'. La decisión llegará en dos meses.');selectSection('Eventos');if(typeof saveGame==='function')saveGame(true)};
  window.omF1Bid=function(){const d=D(),name=(omStrip(document.getElementById('omF1Name')?.value)).trim(),fee=n(document.getElementById('omF1Fee')?.value);if(name.length<3||fee<=0){notice('Completá el nombre del Gran Premio y un canon anual válido.');return}if(d.sportsFund<1.5){notice('El Ministerio de Deportes necesita USD 1.500 millones para garantizar la candidatura.');return}d.sportsFund-=1.5;const id='F1-'+Date.now();d.bids.push({id,country:country(),type:'Contrato de Fórmula 1',name,annualFee:fee,status:'pending',dueTurn:turnNow()+2,date:dateNow(),note:'Oferta contractual presentada por cuatro años.'});log('Oferta de Fórmula 1',country()+' presentó una oferta para organizar '+name+' durante cuatro años.');notice('Oferta enviada. La respuesta llegará en dos meses.');selectSection('Eventos');if(typeof saveGame==='function')saveGame(true)};
  window.omF1Renew=function(id){const d=D(),x=d.f1Contracts.find(y=>y.id===id&&y.country===country()&&y.status==='expired');if(!x){notice('No se encontró un contrato vencido.');return}if(d.sportsFund<1.5){notice('Necesitás USD 1.500 millones en el Ministerio de Deportes para renovar.');return}d.sportsFund-=1.5;x.status='active';x.remainingTurns=48;x.startTurn=turnNow();x.endTurn=turnNow()+48;x.startDate=dateNow();x.endDate='pendiente de actualización';x.lastFeeTurn=turnNow();log('Renovación de Fórmula 1','Se renovó '+x.name+' por cuatro años.');selectSection('Eventos');if(typeof saveGame==='function')saveGame(true)};
- function processSportsMonth(){const d=D(),t=turnNow();if(d.lastProcessedTurn===t)return;d.lastProcessedTurn=t;
+ function ensureWorldCup(d){
+   d.worldCups=Array.isArray(d.worldCups)?d.worldCups:[];
+   const y=gameYear(),m=gameMonth();
+   if(y<2026)return;
+   const edition=2026+Math.floor((y-2026)/4)*4;
+   // Catch up an edition if a saved campaign was already beyond its final month when this update was installed.
+   const existing=d.worldCups.find(x=>Number(x.year)===edition);
+   const hostsFor=yr=>yr===2026?'Estados Unidos, México y Canadá':(Object.keys(countries||{}).filter(c=>['Estados Unidos','México','Canadá','Brasil','Argentina','España','Francia','Alemania','Japón','Australia'].includes(c)).sort(()=>Math.random()-.5).slice(0,2).join(' y ')||'Sede internacional');
+   const nations=Object.keys(countries||{}).filter(c=>!['ONU','Mundo'].includes(c));
+   const makeReport=(x,retro=false)=>{
+     const candidates=['Argentina','Brasil','Francia','Alemania','España','Inglaterra','Portugal','Países Bajos','Japón','Estados Unidos','México','Marruecos'];
+     const pool=candidates.filter(c=>countries&&countries[c]);
+     x.winner=(pool.length?pool:nations)[Math.floor(Math.random()*Math.max(1,(pool.length?pool:nations).length))]||'Selección invitada';
+     x.attendance=3500000+Math.floor(Math.random()*1500001);
+     x.impact=5+Math.random()*7;
+     x.status='finalizado';x.endMonthName='Julio';x.endTurn=turnNow();x.reportDate=dateNow();
+     x.note='Mundial finalizado. Campeón: '+x.winner+'. Asistencia: '+money(x.attendance)+' espectadores. Impacto económico estimado: USD '+money(x.impact)+' mil M.';
+     if(!retro && (x.host||'').split(/, | y /).includes(country())){const localBenefit=x.impact*.12;budget+=localBenefit;try{approval=Math.min(95,n(approval)+2);stability=Math.min(95,n(stability)+1)}catch(e){}x.localBenefit=localBenefit;}
+     const msg='Finalizó el Mundial de fútbol '+x.year+' en '+x.host+'. Campeón: '+x.winner+'. Asistencia acumulada: '+money(x.attendance)+' espectadores. Impacto económico estimado en las sedes: USD '+money(x.impact)+' mil M.'+(x.localBenefit?' Beneficio fiscal estimado para '+country()+': USD '+money(x.localBenefit)+' mil M.':'');
+     x.finalNewsPosted=true;log('Final del Mundial de fútbol',msg);
+     if(typeof notify==='function'&&!retro)notice('¡Terminó el Mundial! Campeón: '+x.winner+'. Impacto económico: USD '+money(x.impact)+' mil M.');
+   };
+   if(!existing && (y>edition || (y===edition && m>7))){
+     const x={id:'WC-'+edition,year:edition,name:'Copa Mundial de Fútbol '+edition,host:hostsFor(edition),startMonthName:'Junio',endMonthName:'Julio',startMonth:6,endMonth:7,status:'en_curso',startTurn:turnNow()-Math.max(0,(y-edition)*12+(m-6)),retroactive:true};
+     d.worldCups.push(x);makeReport(x,true);
+     log('Mundial de fútbol · informe histórico','El archivo de la partida registra que el Mundial '+edition+' se disputó entre junio y julio. '+x.note);
+     return;
+   }
+   if(existing){if(existing.status==='en_curso'&&y===edition&&m>=7)makeReport(existing,false);return;}
+   if(y===edition && m===6){
+     const x={id:'WC-'+edition,year:edition,name:'Copa Mundial de Fútbol '+edition,host:hostsFor(edition),startMonthName:'Junio',endMonthName:'Julio',startMonth:6,endMonth:7,status:'en_curso',startTurn:turnNow(),note:'Comenzó la fase de grupos y la competición internacional.'};
+     d.worldCups.push(x);
+     log('Inicio del Mundial de fútbol',x.name+' comenzó en junio de '+edition+'. Sedes: '+x.host+'. La competición se extenderá hasta julio, cuando se disputará la final.');
+     if(typeof notify==='function')notice('Comenzó el Mundial de fútbol '+edition+'. La final se jugará en julio.');
+   }else if(y===edition && m===7){
+     const x={id:'WC-'+edition,year:edition,name:'Copa Mundial de Fútbol '+edition,host:hostsFor(edition),startMonthName:'Junio',endMonthName:'Julio',startMonth:6,endMonth:7,status:'en_curso',startTurn:turnNow()-1};
+     d.worldCups.push(x);makeReport(x,false);
+   }
+ }
+ function processSportsMonth(){const d=D(),t=turnNow();
+   ensureWorldCup(d);
+   if(d.lastProcessedTurn===t){const b=document.getElementById('budget');if(b)b.textContent='$'+n(budget).toFixed(2)+' mil M';return;}d.lastProcessedTurn=t;
    d.bids.filter(x=>x.status==='pending'&&x.dueTurn<=t).forEach(x=>{
      const stable=n(typeof stability!=='undefined'?stability:55),investment=x.guarantee||1.5;const chance=Math.max(.25,Math.min(.9,.48+stable/250+Math.min(.18,investment*.035)));const accepted=Math.random()<chance;
      if(x.type==='Contrato de Fórmula 1'){
@@ -2273,14 +2318,17 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
        if(accepted){const id='F1C-'+x.id;d.f1Contracts.push({id,country:x.country,name:x.name,annualFee:x.annualFee,status:'active',remainingTurns:48,startTurn:t,endTurn:t+48,startDate:dateNow(),endDate:'a cuatro años',lastFeeTurn:t});}
      }else{
        x.status=accepted?'accepted':'rejected';x.note=accepted?'La candidatura fue aprobada. La competición quedó asignada para '+(x.scheduledDate||('el año '+x.year))+'. La preparación comenzará dentro de doce meses.':'La candidatura no obtuvo los votos suficientes. La garantía se consumió en el proceso.';
-       if(accepted){const hostCost=x.type==='Juegos Olímpicos'?12:10;const eventMonth=eventMonthName(x.type),eventMonthNumber=eventMonthFor(x.type),eventYear=Number(x.year);const monthsToEvent=turnsUntilEvent(eventYear,eventMonthNumber);if(!Number.isFinite(eventYear)||monthsToEvent<=0){x.status='rejected';x.note='La candidatura fue aprobada en principio, pero la fecha propuesta ya quedó atrás. Debés presentar una candidatura para la próxima edición disponible.';}else{d.events.push({id:'EV-'+x.id,country:x.country,type:x.type,eventDate:eventMonth+' de '+eventYear,eventMonth,eventMonthNumber,eventYear,hostCost,status:'scheduled',startTurn:t+monthsToEvent});x.scheduledDate=eventMonth+' de '+eventYear;x.note='Candidatura aprobada. '+x.type+' confirmado para '+eventMonth+' de '+eventYear+'. La preparación y financiación deberán estar listas antes de esa fecha.';}}
+       if(accepted){const hostCost=x.type==='Juegos Olímpicos'?12:10;const eventMonth=eventMonthName(x.type),eventMonthNumber=eventMonthFor(x.type),eventYear=Number(x.year);const monthsToEvent=turnsUntilEvent(eventYear,eventMonthNumber);if(!Number.isFinite(eventYear)||monthsToEvent<=0){x.status='rejected';x.note='La candidatura fue aprobada en principio, pero la fecha propuesta ya quedó atrás. Debés presentar una candidatura para la próxima edición disponible.';}else{d.events.push({id:'EV-'+x.id,country:x.country,type:x.type,eventDate:eventMonth+' de '+eventYear,eventMonth,eventMonthNumber,eventYear,hostCost,status:'scheduled',startTurn:t+monthsToEvent,endTurn:t+monthsToEvent+(x.type==='Mundial de Fútbol'?1:0)});x.scheduledDate=eventMonth+' de '+eventYear;x.note='Candidatura aprobada. '+x.type+' confirmado para '+eventMonth+' de '+eventYear+'. '+(x.type==='Mundial de Fútbol'?'El torneo comenzará en junio y finalizará en julio. ':'')+'La preparación y financiación deberán estar listas antes de esa fecha.';}}
      }
      log('Decisión de candidatura',x.country+': '+x.type+' — '+x.note);
    });
-   d.events.filter(x=>x.status==='scheduled'&&x.startTurn<=t).forEach(x=>{if(d.sportsFund>=x.hostCost){d.sportsFund-=x.hostCost;x.status='celebrado';const attendance=x.type==='Mundial de Fútbol'?3200000+Math.floor(Math.random()*500001):2500000+Math.floor(Math.random()*1500001);const impact=(x.type==='Mundial de Fútbol'?3.2:2.4)+Math.random()*(x.type==='Mundial de Fútbol'?2.8:2.2);const nations=Object.keys(countries||{});const winner=nations[Math.floor(Math.random()*Math.max(1,nations.length))]||'Selección invitada';x.report={attendance,impact,winner,turn:t,date:dateNow()};x.note='Evento celebrado. Campeón: '+winner+'. Asistencia: '+money(attendance)+' personas. Impacto económico estimado: USD '+money(impact)+' mil M.';budget+=impact;try{approval=Math.min(95,n(approval)+3);stability=Math.min(95,n(stability)+2)}catch(e){}log('Final de '+x.type,x.type+' organizado por '+x.country+'. Campeón: '+winner+'. Asistencia: '+money(attendance)+' personas. Impacto económico: USD '+money(impact)+' mil M.');notice('¡Final de '+x.type+'! Campeón: '+winner+'. Asistencia: '+money(attendance)+'. Impacto: USD '+money(impact)+' mil M.')}else{x.status='cancelado';x.note='Cancelado por falta de financiación del Ministerio de Deportes.';log('Evento cancelado',x.type+' fue cancelado en '+x.country+' por falta de fondos.')}});
+   d.events.filter(x=>x.status==='scheduled'&&x.startTurn<=t).forEach(x=>{if(d.sportsFund>=x.hostCost){d.sportsFund-=x.hostCost;x.status=x.type==='Mundial de Fútbol'?'en_curso':'celebrado';const msg=x.type==='Mundial de Fútbol'?'Comenzó en junio. La final se disputará en julio.':'Evento celebrado en '+x.eventDate+'.';x.note=msg;log('Inicio de '+x.type,x.type+' organizado por '+x.country+'. '+msg);if(x.type!=='Mundial de Fútbol'){const attendance=2500000+Math.floor(Math.random()*1500001),impact=2.4+Math.random()*2.2,nations=Object.keys(countries||{}),winner=nations[Math.floor(Math.random()*Math.max(1,nations.length))]||'Selección invitada';x.report={attendance,impact,winner,turn:t,date:dateNow()};x.note+=' Campeón/resultado: '+winner+'. Asistencia: '+money(attendance)+'. Impacto económico: USD '+money(impact)+' mil M.';log('Informe de '+x.type,x.note);}}else{x.status='cancelado';x.note='Cancelado por falta de financiación del Ministerio de Deportes.';log('Evento cancelado',x.type+' fue cancelado en '+x.country+' por falta de fondos.')}});
+   d.events.filter(x=>x.type==='Mundial de Fútbol'&&x.status==='en_curso'&&x.endTurn<=t).forEach(x=>{const attendance=3500000+Math.floor(Math.random()*1500001),impact=5+Math.random()*7,nations=Object.keys(countries||{}),pool=['Argentina','Brasil','Francia','Alemania','España','Inglaterra','Portugal','Países Bajos','Japón','Estados Unidos','México'].filter(c=>countries&&countries[c]),winner=(pool.length?pool:nations)[Math.floor(Math.random()*Math.max(1,(pool.length?pool:nations).length))]||'Selección invitada';x.status='finalizado';x.report={attendance,impact,winner,turn:t,date:dateNow()};x.note='Final disputada en julio. Campeón: '+winner+'. Asistencia: '+money(attendance)+' espectadores. Impacto económico: USD '+money(impact)+' mil M.';log('Final del Mundial de fútbol',x.country+' organizó el Mundial. '+x.note);if(x.country===country()){const localBenefit=impact*.12;budget+=localBenefit;x.localBenefit=localBenefit;try{approval=Math.min(95,n(approval)+2);stability=Math.min(95,n(stability)+1)}catch(e){}}notice('¡Final del Mundial! Campeón: '+winner+'. Impacto económico: USD '+money(impact)+' mil M.');});
    d.f1Contracts.filter(x=>x.status==='active').forEach(x=>{x.remainingTurns=Math.max(0,x.endTurn-t);if(t>x.startTurn&&(t-x.startTurn)%12===0&&x.lastRaceTurn!==t){const drivers=['Luca Moretti','Mateo Silva','Alexander Weber','Noah Bennett','Thiago Costa','Enzo Ricci','Oliver Hart','Santiago Pérez'];const winner=drivers[Math.floor(Math.random()*drivers.length)];const attendance=150000+Math.floor(Math.random()*190001);const impact=0.25+Math.random()*0.75;x.lastRace={turn:t,date:dateNow(),winner,attendance,impact};x.lastRaceTurn=t;budget+=impact;log('Gran Premio de Fórmula 1',x.name+' · fecha anual del contrato: '+(Math.floor((t-x.startTurn)/12))+' de 4. Ganó '+winner+'. Asistieron '+money(attendance)+' espectadores y el impacto económico estimado fue de USD '+money(impact)+' mil M.');notice('Resultado de F1: ganó '+winner+'. Público: '+money(attendance)+'. Impacto económico: USD '+money(impact)+' mil M.');}if(t>x.startTurn&&t%12===0&&x.lastFeeTurn!==t){if(n(budget)>=x.annualFee){budget-=x.annualFee;x.lastFeeTurn=t;log('Canon de Fórmula 1','Se abonó el canon anual de '+x.name+': USD '+money(x.annualFee)+' mil M.')}else{log('Incumplimiento contractual','No se pudo pagar el canon anual de '+x.name+'. La organización revisará el contrato.')}}if(t>=x.endTurn){x.status='expired';x.remainingTurns=0;x.endDate=dateNow();log('Contrato de Fórmula 1 vencido',x.name+' venció después de cuatro años. Podés negociar una renovación.')}});
    const active=document.querySelector('#nav button.active')?.dataset.section;if(active==='Eventos')selectSection('Eventos');const b=document.getElementById('budget');if(b)b.textContent='$'+n(budget).toFixed(2)+' mil M';
  }
+ window.omProcessSportsMonth=processSportsMonth;
+
  const next=document.getElementById('nextTurn');if(next){const old=next.onclick;next.onclick=function(){if(typeof old==='function')old.apply(this,arguments);processSportsMonth();if(typeof saveGame==='function')saveGame(true)}}
  const oldCollect=window.collectGame;if(typeof oldCollect==='function')window.collectGame=function(){const d=oldCollect();d.omSportsEvents=JSON.parse(JSON.stringify(D()));return d};
  const oldRestore=window.restoreGame;if(typeof oldRestore==='function')window.restoreGame=function(g){oldRestore(g);if(g&&g.omSportsEvents){const d=D();Object.keys(d).forEach(k=>delete d[k]);Object.assign(d,g.omSportsEvents)}};
@@ -2868,6 +2916,7 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
    }
  });
  S.commodityStocks=S.commodityStocks||{};
+ S.semiconductorInventoryVersion=S.semiconductorInventoryVersion||1;
  S.lastAiCommodityTurn=Number.isFinite(Number(S.lastAiCommodityTurn))?Number(S.lastAiCommodityTurn):-1;
  S.commoditySeq=num(S.commoditySeq)||1;
  function log(title,text){const row={id:S.commoditySeq++,turn:turnNo(),date:$('date')?.textContent||('Turno '+turnNo()),title,text};S.commodityHistory.unshift(row);S.commodityHistory=S.commodityHistory.slice(0,100);S.corporateLog=S.corporateLog||[];S.corporateLog.unshift({turn:turnNo(),title,text});S.corporateLog=S.corporateLog.slice(0,100);if(typeof addNews==='function'&&[country()].includes(country()))addNews(title,text);}
@@ -2996,5 +3045,156 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
 })();
 
 </script>
+
+<script>
+/* ORDEN MUNDIAL · DISPATCH FINAL DE EVENTOS DEPORTIVOS */
+(function(){
+ const btn=document.getElementById('nextTurn');
+ if(btn){btn.addEventListener('click',()=>{setTimeout(()=>{try{window.omProcessSportsMonth?.();if(typeof window.saveGame==='function')window.saveGame(true);}catch(e){console.error('Error procesando eventos deportivos:',e)}},0)});}
+ // Al cargar una partida ya avanzada, reconstruye el resultado del Mundial si faltaba el registro.
+ setTimeout(()=>{try{window.omProcessSportsMonth?.();}catch(e){console.error('Error inicializando calendario deportivo:',e)}},0);
+})();
+</script>
+
+
+<script>
+/* ORDEN MUNDIAL · CONSEJO DE ASESORES NO VINCULANTES */
+(function(){
+ 'use strict';
+ if(window.omAdvisersV1)return;window.omAdvisersV1=true;
+ const $=id=>document.getElementById(id);
+ const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
+ const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,num(v)));
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const country=()=>{try{return currentCountry||'Argentina'}catch(e){return 'Argentina'}};
+ const safeGet=(fn,fb=null)=>{try{return fn()}catch(e){return fb}};
+ const cdata=()=>safeGet(()=>countries[country()],{})||{};
+ const state=()=>window.omBancoCentralState||{};
+ const eco=()=>safeGet(()=>state().economies?.[country()],{})||{};
+ const fx=()=>window.omFX||{};
+ const reserve=()=>{const f=fx(),r=f.reserves?.[country()]||f.countryReserves?.[country()]||f.countries?.[country()]?.reserves||{};return num(r.usd??r.USD??r.totalUSD??r.total)};
+ const currentCurrency=()=>{const f=fx();const code=f.nationalCurrencyByCountry?.[country()]||f.countryCurrencies?.[country()]||'';return {code,record:f.currencies?.[code]||f.currencies?.[country()]||null}};
+ const activeWars=()=>safeGet(()=>wars.filter(w=>w.status==='active'&&(w.attacker===country()||w.target===country())),[])||[];
+ const production=()=>safeGet(()=>window.omProductiveV5?.projects||[],[])||[];
+ const investmentProjects=()=>production().filter(p=>p.country===country()||p.investor===country());
+ const activeInfra=()=>safeGet(()=>window.omExpansion2026API?.state()?.projects||[],[]) .filter(p=>p.status==='active'&&(p.a===country()||p.b===country()));
+ const intlOps=()=>safeGet(()=>window.omWorld?.operations||[],[])||[];
+ const latestIntel=()=>safeGet(()=>influenceReports.filter(x=>x.country===country()||x.target===country()),[])||[];
+ const relationValues=()=>safeGet(()=>Object.keys(countries||{}).filter(n=>n!==country()).map(n=>num(countries[n]?.relation)).filter(v=>v>0),[])||[];
+ function advisors(){
+  const c=cdata(),e=eco(),f=fx(),cur=currentCurrency(),res=reserve(),warsNow=activeWars(),projects=investmentProjects(),infra=activeInfra(),intel=latestIntel(),rels=relationValues();
+  const inflation=num(e.inflation??state().inflation),rate=num(e.rate??state().rate),unemployment=num(e.unemployment??state().unemployment),mil=num(c.militaryCapacity??(typeof militaryCapacity!=='undefined'?militaryCapacity:0)),stability=num(c.stability??(typeof stability!=='undefined'?stability:50)),approval=num(c.approval??(typeof approval!=='undefined'?approval:50)),cash=num(typeof budget!=='undefined'?budget:c.budget),industryCount=projects.length,averageRelation=rels.length?rels.reduce((a,b)=>a+b,0)/rels.length:null;
+  const inflationKnown=Number.isFinite(Number(e.inflation??state().inflation)),rateKnown=Number.isFinite(Number(e.rate??state().rate)),unemploymentKnown=Number.isFinite(Number(e.unemployment??state().unemployment));
+  const out=[];
+  // ECONOMÍA
+  let econDiag=inflationKnown?`Inflación simulada: ${inflation.toFixed(1)}% · tasa de referencia: ${rate.toFixed(1)}% · desempleo: ${unemployment.toFixed(1)}%.`:'El tablero macroeconómico todavía no ofrece todos los indicadores para un diagnóstico cuantitativo.';
+  let econRecs=[];
+  if(inflationKnown&&inflation>=12)econRecs.push('Priorizar un programa gradual de desinflación: coordinar la política monetaria con una trayectoria fiscal creíble y evitar financiar gasto corriente con emisión.');
+  else if(inflationKnown&&inflation>=6)econRecs.push('Contener la inflación sin frenar bruscamente la actividad: revisar los componentes que más suben y comunicar objetivos monetarios claros.');
+  else if(inflationKnown)econRecs.push('Con inflación moderada, preservar previsibilidad y evitar estímulos generalizados que recalienten la demanda.');
+  if(cash<12)econRecs.push('Proteger la liquidez del Tesoro: ordenar vencimientos, priorizar gastos de alto impacto y evitar compromisos permanentes sin financiación.');
+  else econRecs.push('Evaluar una cartera diversificada del fondo soberano: liquidez de corto plazo, activos productivos y reservas de contingencia, con límites de riesgo.');
+  if(res>0&&res<10)econRecs.push('Reforzar gradualmente las reservas internacionales y reducir descalces de moneda en deuda y comercio.');
+  else econRecs.push('Revisar la cobertura de reservas frente a importaciones y vencimientos externos; no utilizar todo el fondo para defender un tipo de cambio puntual.');
+  if(rateKnown&&inflationKnown&&rate<inflation)econRecs.push('La tasa nominal está por debajo de la inflación observada: analizar si la tasa real negativa está presionando la demanda de divisas.');
+  out.push({name:'Asesoría económica y monetaria',icon:'📊',diag:econDiag,level:inflationKnown&&inflation>=12?'Atención prioritaria':'Seguimiento',recs:econRecs,actions:[['Abrir economía','Economía'],['Abrir divisas','Divisas'],['Ver fondo soberano','Fondo soberano']]});
+  // DEFENSA
+  let defenseRecs=[];
+  if(warsNow.length)defenseRecs.push(`Hay ${warsNow.length} conflicto(s) activo(s) que involucran al país: revisar sostenibilidad presupuestaria, protección civil, logística y canales diplomáticos para evitar una escalada no deseada.`);
+  else defenseRecs.push('No se detectan guerras activas que involucren directamente al país. Mantener preparación, vigilancia de fronteras y capacidad de respuesta ante emergencias sin sobredimensionar el gasto.');
+  if(mil<45)defenseRecs.push('La capacidad militar registrada es limitada. Considerar primero mantenimiento, entrenamiento, comunicaciones, logística y defensa de infraestructura crítica.');
+  else if(mil>80)defenseRecs.push('La capacidad militar es elevada: auditar costos de mantenimiento, disponibilidad y sostenibilidad fiscal antes de ampliar arsenales.');
+  else defenseRecs.push('Revisar brechas de preparación y equipamiento mediante una evaluación de capacidades, con prioridades defensivas y objetivos medibles.');
+  defenseRecs.push('Solicitar un mapa de puntos sensibles: puertos, redes eléctricas, telecomunicaciones, centros logísticos y pasos fronterizos; priorizar resiliencia y protección civil.');
+  out.push({name:'Asesor de defensa y seguridad',icon:'🛡️',diag:`Capacidad militar registrada: ${mil?mil.toFixed(0)+'/100':'dato no disponible'} · conflictos activos: ${warsNow.length}.`,level:warsNow.length?'Riesgo elevado':'Prevención',recs:defenseRecs,actions:[['Abrir defensa','Defensa'],['Revisar conflictos','Guerra'],['Ver inteligencia','Inteligencia y contrainteligencia']]});
+  // INDUSTRIA / TECNOLOGÍA
+  const semiconductor=projects.filter(p=>/semiconductor|microchip|chip/i.test(String(p.sectorLabel||p.sector||'')));
+  const producing=projects.filter(p=>p.status==='Produciendo');
+  let indRecs=[];
+  if(!projects.length)indRecs.push('No aparecen inversiones productivas vinculadas al país. Identificar dos o tres sectores con ventajas locales antes de comprometer capital.');
+  else indRecs.push(`Hay ${projects.length} proyectos productivos vinculados al país, ${producing.length} en producción. Comparar su rendimiento, plazos y dividendos antes de abrir nuevos proyectos.`);
+  indRecs.push(semiconductor.length?'El país ya tiene exposición a semiconductores: evaluar capacidad de fabricación, talento, energía estable, agua industrial y acuerdos tecnológicos.':'Considerar semiconductores como inversión estratégica si existen energía confiable, formación técnica, capital y acceso a mercados; evitar asumir que una fábrica será rentable de inmediato.');
+  indRecs.push('Diversificar entre sectores exportadores y proveedores nacionales para reducir dependencia de una sola materia prima o mercado.');
+  out.push({name:'Asesor industrial y tecnológico',icon:'🏭',diag:`Proyectos vinculados al país: ${projects.length} · en producción: ${producing.length} · proyectos de semiconductores: ${semiconductor.length}.`,level:'Desarrollo productivo',recs:indRecs,actions:[['Abrir industrias','Industrias y recursos'],['Ver mercado mundial','Mercado mundial'],['Abrir bolsas','Bolsas']]});
+  // DIPLOMACIA
+  let dipRecs=[];
+  if(averageRelation!==null&&averageRelation<45)dipRecs.push('El promedio de relaciones bilaterales registradas es bajo. Priorizar canales diplomáticos, acuerdos sectoriales y mecanismos de consulta con socios clave.');
+  else dipRecs.push('Mantener una agenda equilibrada: fortalecer relaciones con socios comerciales y conservar canales abiertos con países con los que existan diferencias.');
+  const pendingDiplomacy=safeGet(()=>diplomacyRequests.filter(x=>x.status==='Pendiente'&&(x.from===country()||x.target===country())).length,0);
+  if(pendingDiplomacy)dipRecs.push(`Hay ${pendingDiplomacy} solicitud(es) diplomática(s) pendiente(s): responderlas puede evitar malentendidos y mejorar previsibilidad.`);
+  dipRecs.push('Revisar dependencia comercial por país, diversificar destinos de exportación y negociar acuerdos que incluyan reglas de solución de controversias.');
+  out.push({name:'Asesor de relaciones exteriores',icon:'🌐',diag:`Promedio de relaciones bilaterales disponibles: ${averageRelation===null?'dato no disponible':averageRelation.toFixed(0)+'/100'} · solicitudes pendientes: ${pendingDiplomacy}.`,level:'Agenda exterior',recs:dipRecs,actions:[['Abrir diplomacia','Diplomacia'],['Ver bloques','Bloques y FMI'],['Mercado internacional','Mercado mundial']]});
+  // SOCIEDAD
+  let socialRecs=[];
+  if(approval<40)socialRecs.push('La aprobación es baja. Abrir diálogo con provincias, sindicatos, empresas y oposición; identificar el costo social de las medidas antes de anunciarlas.');
+  else socialRecs.push('Monitorear aprobación y estabilidad junto con empleo, salarios y acceso a servicios; no interpretar un solo indicador como diagnóstico social completo.');
+  if(stability<45)socialRecs.push('La estabilidad institucional requiere atención: fortalecer mecanismos de diálogo, continuidad de servicios esenciales y transparencia pública.');
+  else socialRecs.push('Preservar la estabilidad con previsibilidad normativa y evaluación pública de resultados.');
+  out.push({name:'Asesor social y de gobernabilidad',icon:'👥',diag:`Aprobación: ${approval.toFixed(0)}% · estabilidad: ${stability.toFixed(0)}/100.`,level:approval<40||stability<45?'Atención social':'Seguimiento',recs:socialRecs,actions:[['Abrir sociedad','Sociedad'],['Política interna','Política interna'],['Ver gobierno','Gobierno']]});
+  // INFRAESTRUCTURA
+  out.push({name:'Asesor de infraestructura',icon:'🏗️',diag:`Proyectos internacionales activos vinculados al país: ${infra.length}.`,level:'Planificación',recs:[infra.length?'Controlar cronograma, sobrecostos y distribución de beneficios de los proyectos en marcha.':'No se registran proyectos internacionales activos vinculados al país; evaluar cuellos de botella logísticos antes de iniciar obras.', 'Priorizar mantenimiento de infraestructura existente, puertos, ferrocarriles, energía y conectividad antes de anunciar grandes obras nuevas.','Exigir evaluación de impacto, financiación completa y estimación de demanda para cada proyecto.'],actions:[['Infraestructura','Infraestructura internacional'],['Industria','Industria']]});
+  // INTELIGENCIA
+  out.push({name:'Asesor de inteligencia y riesgos',icon:'🛰️',diag:`Informes de inteligencia disponibles vinculados al país: ${intel.length}.`,level:'Evaluación de riesgos',recs:[intel.length?'Actualizar los informes existentes y separar hechos confirmados, indicios y escenarios posibles.':'Solicitar un panorama de riesgos regionales: conflictos, tensiones fronterizas, amenazas cibernéticas y vulnerabilidades de infraestructura.', 'Establecer un sistema de alerta temprana y coordinación interministerial; proteger información sensible y supervisar legalmente las operaciones.','Evitar decisiones basadas en una única fuente: contrastar información diplomática, económica y de seguridad.'],actions:[['Abrir inteligencia','Inteligencia y contrainteligencia'],['Ver informes','Informes']]});
+  return out;
+ }
+ function ensureChinaLogisticsListing(){
+  const m=window.omCapitalMarketsV1;if(!m)return null;
+  if(!Array.isArray(m.companies))m.companies=[];
+  let co=m.companies.find(x=>String(x.country)==='China'&&/log[ií]stica|transport/i.test(String(x.sector||'')));
+  if(!co){
+   const id='EQ'+(num(m.nextId)||1);m.nextId=(num(m.nextId)||1)+1;
+   const capital=15,shares=1000000,price=capital*1000;
+   co={id,country:'China',name:'Sino Logistics Network',sector:'Transporte y logística',capital,marketCap:capital,sharesOutstanding:shares,price,founder:'China',holdings:{China:shares*.7},floatShares:shares*.3,createdTurn:(()=>{try{return Number(turn)||0}catch(e){return 0}})(),lastPrice:price,change:0,profit:0,totalDividends:0,aiCreated:true,listed:true};
+   m.companies.push(co);
+   if(Array.isArray(m.companyLog))m.companyLog.push({turn:co.createdTurn,country:'China',kind:'company-created',companyId:id,name:co.name,sector:co.sector,amount:capital,text:'China · Sino Logistics Network comenzó a cotizar en la bolsa nacional.'});
+  }
+  return co;
+ }
+ window.omAdvisorBuyChinaLogistics=function(){
+  const co=ensureChinaLogisticsListing();if(!co)return notify('El mercado bursátil todavía no está disponible.');
+  const available=Math.floor(num(co.floatShares)),qty=Math.min(100000,available);if(qty<1)return notify('No quedan acciones disponibles de '+co.name+'.');
+  const cost=qty*num(co.price)/1e9;if(num(typeof budget!=='undefined'?budget:0)<cost)return notify('El presupuesto disponible no alcanza para esta compra.');
+  if(!confirm('El asesor recomienda comprar '+qty.toLocaleString('es-AR')+' acciones de '+co.name+' (China).\nCosto estimado: USD '+cost.toLocaleString('es-AR',{maximumFractionDigits:4})+' mil M.\nLa operación se ejecutará solo si confirmás. ¿Continuar?'))return;
+  if(typeof window.omTradeShares==='function'){window.omTradeShares(co.id,'buy',qty);if(typeof saveGame==='function')saveGame(true);}else notify('No se encontró el operador bursátil. Abrí Bolsas para operar manualmente.');
+ };
+ window.omAdvisorPrepareFiscalPlan=function(){
+  window.selectSection?.('Economía');
+  setTimeout(()=>{
+   const tax=$('tax'),ret=$('retention'),tar=$('tariff');if(!tax||!ret||!tar)return;
+   const nextTax=Math.max(0,Number(tax.value)-1),nextRet=Math.max(0,Number(ret.value)-2),nextTar=Math.max(0,Number(tar.value)-2);
+   [[tax,nextTax,'taxVal'],[ret,nextRet,'retentionVal'],[tar,nextTar,'tariffVal']].forEach(([el,v,label])=>{el.value=v;const l=$(label);if(l)l.textContent=v+'%';});
+   const note=$('fiscalSummary');if(note)note.textContent='Propuesta del asesor: alivio gradual de cargas (consumo −1 punto, retenciones −2 puntos y aranceles −2 puntos). Revisá el efecto fiscal y aprobá solo si estás de acuerdo.';
+   notify('Plan fiscal preparado. Revisá los valores y pulsá “Aprobar política tributaria” para aplicarlo.');
+  },80);
+ };
+ window.omAdvisorDefenseInvestment=function(){
+  if(typeof window.omInvestDeterrence!=='function'&&typeof omInvestDeterrence!=='function')return notify('La herramienta de inversión en defensa no está disponible.');
+  if(num(typeof budget!=='undefined'?budget:0)<5)return notify('Se necesitan USD 5 mil M para esta medida.');
+  if(!confirm('El asesor recomienda invertir USD 5 mil M en disuasión y preparación defensiva. La medida aumenta el nivel de disuasión, la preparación y la capacidad militar. ¿Autorizar la inversión?'))return;
+  (window.omInvestDeterrence||omInvestDeterrence)();if(typeof saveGame==='function')saveGame(true);
+ };
+ function advisorActionPanel(a){
+  if(a.name==='Asesoría económica y monetaria'){
+   const co=ensureChinaLogisticsListing(),qty=co?Math.min(100000,Math.floor(num(co.floatShares))):0,cost=co?qty*num(co.price)/1e9:0;
+   return `<div class="om-card" style="margin-top:14px;border:1px solid var(--line,#40556c)"><h4>Medidas concretas propuestas</h4><p><b>Oportunidad bursátil:</b> ${esc(co?.name||'Empresa logística china')} · China · Transporte y logística. Cotización: USD ${co?num(co.price).toLocaleString('es-AR'): '—'} por acción. El asesor propone evaluar una posición inicial de hasta ${qty.toLocaleString('es-AR')} acciones (costo estimado USD ${cost.toLocaleString('es-AR',{maximumFractionDigits:4})} mil M).</p><button type="button" class="primary" onclick="window.omAdvisorBuyChinaLogistics()">Evaluar y comprar acciones</button><p class="om-note" style="margin-top:10px">La compra requiere confirmación, se descuenta del presupuesto y queda registrada en la cartera bursátil. Es una inversión extranjera con riesgo de mercado y cambiario.</p><hr style="opacity:.2;margin:12px 0"><p><b>Medida fiscal:</b> preparar una reducción gradual de 1 punto en impuesto al consumo, 2 puntos en retenciones y 2 puntos en aranceles para aliviar costos. No garantiza por sí sola una caída de la inflación; implica menor recaudación potencial y debe evaluarse con el presupuesto.</p><button type="button" onclick="window.omAdvisorPrepareFiscalPlan()">Preparar propuesta fiscal en Economía</button><p class="om-note">El simulador no ofrece en este panel una orden directa para fijar tasas de interés; este ajuste tributario no controla por sí solo la inflación ni estabiliza la moneda.</p></div>`;
+  }
+  if(a.name==='Asesor de defensa y seguridad'){
+   return `<div class="om-card" style="margin-top:14px;border:1px solid var(--line,#40556c)"><h4>Medida concreta propuesta</h4><p><b>Programa de disuasión y preparación:</b> asignar USD 5 mil M para mejorar el nivel de disuasión, la preparación y la capacidad militar nacional. Es una inversión abstracta de defensa; no inicia conflictos ni despliega fuerzas automáticamente.</p><button type="button" class="primary" onclick="window.omAdvisorDefenseInvestment()">Evaluar inversión de USD 5 mil M</button><p class="om-note">La operación requiere tu confirmación y presupuesto suficiente. También conviene revisar mantenimiento, logística, protección civil y seguridad de infraestructura crítica antes de ampliar capacidades.</p></div>`;
+  }
+  return '';
+ }
+ function render(){
+  const list=advisors();
+  return `<section id="omAdvisersPanel" style="margin-top:22px"><div class="om-hero"><div><span class="om-kicker">CONSEJO PRESIDENCIAL · ANÁLISIS TÉCNICO</span><h2>Gabinete de asesores</h2><p>Especialistas que analizan los indicadores disponibles de ${esc(country())} y elaboran diagnósticos y recomendaciones. Sus informes son orientativos: ninguna recomendación modifica políticas, presupuesto ni órdenes sin tu decisión.</p></div><div class="om-hero-badge">🧭 Asesoramiento no vinculante</div></div><div class="om-note" style="margin-bottom:14px"><b>Alcance:</b> los asesores utilizan los datos que el juego tiene disponibles en esta partida. Cuando falta un indicador, lo señalan en lugar de inventarlo. Las propuestas pueden contener riesgos y alternativas.</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 18px"><button class="primary" onclick="window.omRefreshAdvisers()">↻ Actualizar informes</button><span class="muted" style="align-self:center">Última lectura: ${esc($('date')?.textContent||'turno actual')}</span></div><div class="om-grid-2">${list.map((a,i)=>`<article class="om-card"><div class="om-card-head"><span class="om-icon">${a.icon}</span><div><h3>${esc(a.name)}</h3><small>${esc(a.level)}</small></div></div><p class="om-note">${esc(a.diag)}</p><h4 style="margin:12px 0 6px">Diagnóstico y recomendaciones</h4><ol style="padding-left:20px;line-height:1.6">${a.recs.map(r=>`<li style="margin:7px 0">${esc(r)}</li>`).join('')}</ol>${advisorActionPanel(a)}<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px">${a.actions.map(([label,section])=>`<button type="button" onclick="window.omAdvisorGo('${esc(section)}')">${esc(label)} →</button>`).join('')}</div></article>`).join('')}</div><p class="om-note" style="margin-top:14px">Los informes no aplican automáticamente medidas, no gastan fondos y no sustituyen la decisión del gobierno. Las cifras son las del simulador, no pronósticos del mundo real.</p></section>`;
+ }
+ window.omRefreshAdvisers=function(){const host=$('omAdvisersPanel');if(host){const wrap=document.createElement('div');wrap.innerHTML=render();host.replaceWith(wrap.firstElementChild)}else window.selectSection?.('Política interna')};
+ window.omAdvisorGo=function(section){if(typeof window.selectSection==='function')window.selectSection(section)};
+ const oldSelect=window.selectSection;
+ window.selectSection=function(section){const r=oldSelect?.apply(this,arguments);if(section==='Política interna'){const body=$('workspaceBody');if(body){const old=body.querySelector('#omAdvisersPanel');if(old)old.remove();body.insertAdjacentHTML('beforeend',render());}}return r};
+ // Mantener los informes frescos al avanzar un mes sin ejecutar recomendaciones.
+ const next=$('nextTurn');if(next){next.addEventListener('click',()=>setTimeout(()=>{if(document.querySelector('#nav button.active')?.dataset.section==='Política interna')window.omRefreshAdvisers()},0));}
+})();
+</script>
+
 </body>
 </html>
