@@ -2852,6 +2852,21 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  };
  S.commodityOrders=Array.isArray(S.commodityOrders)?S.commodityOrders:[];
  S.commodityHistory=Array.isArray(S.commodityHistory)?S.commodityHistory:[];
+ // Escala comercial v2: los contratos de materias primas estaban cotizados
+ // a una décima parte del valor previsto. Los pedidos pendientes se recalculan
+ // con la escala nueva; las operaciones ya en tránsito reciben una migración
+ // única para no perder el precio acordado ni multiplicarlo más de una vez.
+ const COMMODITY_PRICE_SCALE=10;
+ S.commodityOrders.forEach(o=>{
+   if(Number(o.priceScaleVersion||0)<2){
+     if(o.status==='En tránsito'){
+       if(Number.isFinite(Number(o.totalUSD)))o.totalUSD=Number(o.totalUSD)*COMMODITY_PRICE_SCALE;
+       if(Number.isFinite(Number(o.paymentAmount)))o.paymentAmount=Number(o.paymentAmount)*COMMODITY_PRICE_SCALE;
+       if(Number.isFinite(Number(o.logisticsFee)))o.logisticsFee=Number(o.logisticsFee)*COMMODITY_PRICE_SCALE;
+     }
+     o.priceScaleVersion=2;
+   }
+ });
  S.commodityStocks=S.commodityStocks||{};
  S.lastAiCommodityTurn=Number.isFinite(Number(S.lastAiCommodityTurn))?Number(S.lastAiCommodityTurn):-1;
  S.commoditySeq=num(S.commoditySeq)||1;
@@ -2865,7 +2880,7 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  function bump(c,pct){if(!c)return;const old=num(c.price)||.1;c.lastPrice=old;c.price=Math.max(.1,old*(1+pct/100));c.change=(c.price-old)/old*100;c.marketCap=c.price*num(c.sharesOutstanding)/1e9;c.lastCommodityTurn=turnNo();}
  function countryCurrencyList(){return Object.keys(fx.currencies||{}).filter(k=>!k.startsWith('N'))}
  function addOrder({buyer,seller,resource,qty,currency,logisticsId,proposedLogisticsId,origin,status='Pendiente',dueTurn=turnNo()+1}){
-  const o={id:'CMD'+Date.now()+Math.floor(Math.random()*99999),buyer,seller,resource,qty,currency,logisticsId:logisticsId||null,proposedLogisticsId:proposedLogisticsId||null,origin:origin||'Solicitud comercial',status,createdTurn:turnNo(),dueTurn,unitPrice:resources[resource].unit*(.88+Math.random()*.24),lastUpdateTurn:turnNo()};S.commodityOrders.unshift(o);return o;
+  const o={id:'CMD'+Date.now()+Math.floor(Math.random()*99999),buyer,seller,resource,qty,currency,logisticsId:logisticsId||null,proposedLogisticsId:proposedLogisticsId||null,origin:origin||'Solicitud comercial',status,createdTurn:turnNo(),dueTurn,unitPrice:resources[resource].unit*(.88+Math.random()*.24),priceScaleVersion:2,lastUpdateTurn:turnNo()};S.commodityOrders.unshift(o);return o;
  }
  function aiCommodityDemand(){
   if(S.lastAiCommodityTurn===turnNo()||turnNo()-S.lastAiCommodityTurn<2)return;
@@ -2880,7 +2895,7 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
   const order=addOrder({buyer,seller,resource,qty,currency:buyerCurrency,proposedLogisticsId:preferred.id,origin:'Demanda autónoma de '+buyer});
   order.aiInitiated=true;log('Solicitud internacional de materias primas',buyer+' solicita a '+seller+' la compra de '+qty+' unidades de '+resources[resource].label+'. Propone pagar en '+buyerCurrency+' y ofrece a '+preferred.name+' como operador logístico.');
  }
- function priceUSD(o){return num(o.qty)*num(o.unitPrice)}
+ function priceUSD(o){return num(o.qty)*num(o.unitPrice)*COMMODITY_PRICE_SCALE}
  function convertValue(usd,currency){const c=fx.currencies?.[currency];return c?usd*num(c.perUSD):usd}
  function decide(id,accept){const o=S.commodityOrders.find(x=>x.id===id&&x.status==='Pendiente');if(!o)return;const sellerStock=stockFor(o.seller),sellerIsPlayer=o.seller===country(),buyerIsPlayer=o.buyer===country();if(!accept){o.status='Rechazada';o.lastUpdateTurn=turnNo();log('Oferta de materias primas rechazada',(sellerIsPlayer?o.buyer:o.seller)+' rechazó la operación de '+resources[o.resource].label+' con '+o.qty+' unidades.');persist();renderIfOpen();return;}
   if(sellerIsPlayer&&num(sellerStock[o.resource])<o.qty){return notify('No hay inventario suficiente para cumplir la entrega.');}
