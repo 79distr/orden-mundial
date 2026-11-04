@@ -16,7 +16,7 @@
 const ENC = new TextEncoder();
 const PBKDF2_ITERATIONS = 100000; // máximo que admite Workers
 const SESSION_TTL = 60 * 60 * 24 * 30; // 30 días
-const MAX_SAVE_CHARS = 8000000;
+const MAX_SAVE_CHARS = 12000000;
 const BACKUP_MIN_AGE_MS = 10 * 60 * 1000;
 const COOKIE = 'om_session';
 const MAX_FAILS = 8;
@@ -433,4 +433,3 @@ export async function onRequest(context) {
   } catch (e) {
     return json({ error: 'server', message: 'Error interno del servidor.' }, 500);
   }
-}
