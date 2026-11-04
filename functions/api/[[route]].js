@@ -88,11 +88,15 @@ function normUser(raw) {
 }
 
 async function readJson(request, limit) {
-  const text = await request.text();
-  if (text.length > limit) return null;
+  // Rechaza cuerpos sobredimensionados antes de consumirlos cuando el header existe.
+  const declaredLength = Number(request.headers.get('Content-Length') || 0);
+  if (declaredLength > limit) return null;
+
   try {
+    const text = await request.text();
+    if (text.length > limit) return null;
     return JSON.parse(text);
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -221,6 +225,8 @@ async function handleSavePut(request, env, user) {
   }
   const key = 'save:' + user;
   const current = await env.OM_KV.get(key, 'json');
+  // KV no ofrece compare-and-swap atómico: este control detecta versiones
+  // desactualizadas en el flujo normal, pero no serializa dos escrituras simultáneas.
   if (current && Number(body.baseVersion) !== current.updatedAt) {
     return json(
       { error: 'conflict', message: 'La partida en la nube cambió desde otro dispositivo.', updatedAt: current.updatedAt },
