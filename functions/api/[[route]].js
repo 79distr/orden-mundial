@@ -16,7 +16,9 @@
 const ENC = new TextEncoder();
 const PBKDF2_ITERATIONS = 100000; // máximo que admite Workers
 const SESSION_TTL = 60 * 60 * 24 * 30; // 30 días
-const MAX_SAVE_CHARS = 12000000;
+const MAX_SAVE_CHARS = 24000000;
+// Margen bajo el máximo de 25 MiB por valor de Workers KV.
+const MAX_KV_VALUE_BYTES = 24 * 1024 * 1024;
 const BACKUP_MIN_AGE_MS = 10 * 60 * 1000;
 const COOKIE = 'om_session';
 const MAX_FAILS = 8;
@@ -85,6 +87,11 @@ function cookieHeader(value, maxAge, secure) {
 function normUser(raw) {
   const u = String(raw || '').trim().toLowerCase();
   return /^[a-z0-9_.-]{3,32}$/.test(u) ? u : null;
+}
+
+function serializeKvValue(value) {
+  const serialized = JSON.stringify(value);
+  return ENC.encode(serialized).byteLength <= MAX_KV_VALUE_BYTES ? serialized : null;
 }
 
 async function readJson(request, limit) {
@@ -233,11 +240,16 @@ async function handleSavePut(request, env, user) {
       409
     );
   }
+  const updatedAt = Math.max(Date.now(), (current ? current.updatedAt : 0) + 1);
+  const serializedSave = serializeKvValue({ updatedAt, data: body.data });
+  if (!serializedSave) {
+    return json({ error: 'too_large', message: 'La partida supera el tamaño seguro admitido por el almacenamiento. Exportá una copia y contactá soporte.' }, 413);
+  }
   if (current && Date.now() - current.updatedAt > BACKUP_MIN_AGE_MS) {
+    // El respaldo actual ya fue aceptado por KV, por lo que su valor también respeta el límite.
     await env.OM_KV.put('bak:' + user, JSON.stringify(current));
   }
-  const updatedAt = Math.max(Date.now(), (current ? current.updatedAt : 0) + 1);
-  await env.OM_KV.put(key, JSON.stringify({ updatedAt, data: body.data }));
+  await env.OM_KV.put(key, serializedSave);
   return json({ ok: true, updatedAt });
 }
 
@@ -318,7 +330,9 @@ async function handleRoomStart(request, env, code) {
   room.started = true;
   room.status = 'in_game';
   room.turnReady = {};
-  await env.OM_KV.put('room:' + code, JSON.stringify(room), { expirationTtl: ROOM_TTL });
+  const serializedRoom = serializeKvValue(room);
+  if (!serializedRoom) return json({ error: 'too_large', message: 'El mundo supera el tamaño máximo seguro de almacenamiento.' }, 413);
+  await env.OM_KV.put('room:' + code, serializedRoom, { expirationTtl: ROOM_TTL });
   return json({ ok: true, room });
 }
 async function handleRoomWorldGet(request, env, code) {
@@ -340,7 +354,9 @@ async function handleRoomWorldPut(request, env, code) {
   room.worldVersion = (Number(room.worldVersion) || 0) + 1;
   room.lastWorldWriter = found.user;
   room.worldUpdatedAt = Date.now();
-  await env.OM_KV.put('room:' + code, JSON.stringify(room), { expirationTtl: ROOM_TTL });
+  const serializedRoom = serializeKvValue(room);
+  if (!serializedRoom) return json({ error: 'too_large', message: 'El mundo supera el tamaño máximo seguro de almacenamiento.' }, 413);
+  await env.OM_KV.put('room:' + code, serializedRoom, { expirationTtl: ROOM_TTL });
   return json({ ok: true, worldVersion: room.worldVersion });
 }
 async function handleRoomTurnReady(request, env, code) {
@@ -369,7 +385,9 @@ async function handleRoomAdvance(request, env, code) {
   room.turnReady = {};
   room.lastWorldWriter = found.user;
   room.worldUpdatedAt = Date.now();
-  await env.OM_KV.put('room:' + code, JSON.stringify(room), { expirationTtl: ROOM_TTL });
+  const serializedRoom = serializeKvValue(room);
+  if (!serializedRoom) return json({ error: 'too_large', message: 'El mundo supera el tamaño máximo seguro de almacenamiento.' }, 413);
+  await env.OM_KV.put('room:' + code, serializedRoom, { expirationTtl: ROOM_TTL });
   return json({ ok: true, room, worldVersion: room.worldVersion });
 }
 async function handleRoomLeave(request, env, code) {
@@ -433,3 +451,4 @@ export async function onRequest(context) {
   } catch (e) {
     return json({ error: 'server', message: 'Error interno del servidor.' }, 500);
   }
+}
