@@ -154,7 +154,7 @@ input:focus,select:focus{outline:2px solid #59cbb8;outline-offset:1px}
 <div class="shell">
 <header class="topbar">
  <div class="brand"><div class="emblem">◎</div><div><h1>ORDEN MUNDIAL</h1><p>EL MUNDO SIGUE GIRANDO</p></div></div>
- <div class="top-actions"><button class="mobile-menu" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ Menú</button><span class="date-chip" id="date">MARZO · 2026</span><span class="status-chip">● SIMULACIÓN ACTIVA</span><button id="saveGame">💾 Guardar</button><button id="loadGame">↩ Cargar</button><button id="exportSave">⬇ Copia</button><button id="importSave">⬆ Importar</button><input type="file" id="importFile" accept=".json,application/json" style="display:none"><button id="omModeSwitch" type="button" title="Cambiar modalidad">Cambiar modo</button><span class="date-chip" id="omUserChip" style="display:none"></span><span class="save-status" id="saveStatus">Sin guardar</span><button id="omBackup" style="display:none" title="Restaurar la versión anterior de tu partida">⟲ Respaldo</button><button id="omLogout" style="display:none">Salir</button><button class="primary" id="nextTurn">▶ Próximo mes</button></div>
+ <div class="top-actions"><button class="mobile-menu" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ Menú</button><span class="date-chip" id="date">MARZO · 2026</span><span class="status-chip">● SIMULACIÓN ACTIVA</span><button id="saveGame">💾 Guardar</button><button id="loadGame">↩ Cargar</button><button id="exportSave">⬇ Copia</button><button id="omExportFull" type="button" title="Descargar una copia completa de la partida">⬇ Exportar partida</button><button id="importSave">⬆ Importar</button><input type="file" id="importFile" accept=".json,application/json" style="display:none"><button id="omModeSwitch" type="button" title="Cambiar modalidad">Cambiar modo</button><span class="date-chip" id="omUserChip" style="display:none"></span><span class="save-status" id="saveStatus">Sin guardar</span><button id="omBackup" style="display:none" title="Restaurar la versión anterior de tu partida">⟲ Respaldo</button><button id="omLogout" style="display:none">Salir</button><button class="primary" id="nextTurn">▶ Próximo mes</button></div>
 </header>
 <div class="layout">
 <aside class="panel sidebar">
@@ -2552,9 +2552,29 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
  setInterval(()=>{if(S.mode==='cloud')autosave()},30000);
 
  /* Con cuenta activa, Guardar/Cargar trabajan contra la nube. */
+ let turnSaveTimer=null, turnSaveInProgress=false;
+ async function uploadAfterTurn(){
+  if(S.mode!=='cloud'||!S.loaded)return false;
+  // Si hay una subida previa en curso, esperamos a que termine para no perder el turno.
+  for(let i=0;i<60&&S.busy;i++) await new Promise(resolve=>setTimeout(resolve,250));
+  if(S.busy){setStatus('⚠ Guardado pendiente: el servidor sigue ocupado');return false;}
+  for(let attempt=0;attempt<3;attempt++){
+   const ok=await upload(true); // fuerza escritura: no aplica el intervalo de 90 segundos
+   if(ok)return true;
+   if(S.mode!=='cloud'||!S.loaded)return false;
+   if(attempt<2)await new Promise(resolve=>setTimeout(resolve,1200*(attempt+1)));
+  }
+  setStatus('⚠ No se pudo guardar el turno en la nube');
+  return false;
+ }
+ function scheduleTurnCloudSave(delay=650){
+  clearTimeout(turnSaveTimer);
+  turnSaveTimer=setTimeout(()=>{if(!turnSaveInProgress){turnSaveInProgress=true;uploadAfterTurn().finally(()=>{turnSaveInProgress=false})}},delay);
+ }
+ window.omSaveTurnToCloud=()=>scheduleTurnCloudSave(0);
  window.saveGame=function(silent){
   if(S.mode!=='cloud')return localSave.apply(this,arguments);
-  if(silent){autosave();return true}
+  if(silent){scheduleTurnCloudSave();return true}
   upload(true).then(ok=>{if(ok)notify('Partida guardada en tu cuenta.');else notify('No se pudo guardar en la nube. Revisá tu conexión y el estado de la cuenta; tus cambios siguen abiertos en pantalla.')});
   return true;
  };
@@ -2655,7 +2675,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   const fresh=M.room?.turnReady||{},allFresh=roomPlayers().length===2&&roomPlayers().every(([u])=>fresh[u]);
   if(!allFresh){updateHud();notify('Confirmaste el próximo mes. El avance queda bloqueado hasta que confirme el otro jugador.');return}
   if(M.me!==M.room?.owner){notify('Ambos están listos. El creador debe pulsar Próximo mes para ejecutar el avance.');return}
-  M.advancing=true;try{if(oldHandler)oldHandler.apply(ctx,args);const data=collectGame();const b=await call('rooms/'+M.code+'/advance',{method:'POST',body:JSON.stringify({data,baseVersion:M.worldVersion})});M.room=b.room;M.worldVersion=b.worldVersion;rememberLocal();updateHud();notify('Mes avanzado y compartido con ambos jugadores.')}catch(e){notify(e.message);await pollWorld()}finally{M.advancing=false}
+  M.advancing=true;try{if(oldHandler)oldHandler.apply(ctx,args);const data=collectGame();const b=await call('rooms/'+M.code+'/advance',{method:'POST',body:JSON.stringify({data,baseVersion:M.worldVersion})});M.room=b.room;M.worldVersion=b.worldVersion;rememberLocal();updateHud();if(typeof window.omSaveTurnToCloud==='function')window.omSaveTurnToCloud();notify('Mes avanzado y compartido con ambos jugadores.')}catch(e){notify(e.message);await pollWorld()}finally{M.advancing=false}
  }
  async function leaveRoom(){if(!confirm('¿Querés salir de esta sala?'))return;try{await call('rooms/'+M.code+'/leave',{method:'POST',body:'{}'})}catch{}clearRoom()}
  function clearRoom(){M.code='';M.room=null;M.me=null;M.inGame=false;M.worldVersion=0;localStorage.removeItem('om_room_code');if(M.timer)clearInterval(M.timer);M.timer=null;$('omMultiHud')?.remove();panel()}
@@ -3538,6 +3558,59 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  const oldSelect=window.selectSection;if(typeof oldSelect==='function'&&!oldSelect.__omAdoptionPanel){const wrap=function(section){const r=oldSelect.apply(this,arguments);if(section==='Divisas')setTimeout(renderPanel,60);return r};wrap.__omAdoptionPanel=true;window.selectSection=wrap;}
  document.addEventListener('click',e=>{const b=e.target.closest('#nav button');if(b?.dataset.section==='Divisas')setTimeout(renderPanel,80)});
  setTimeout(renderPanel,800);
+})();
+</script>
+
+
+<script id="om-export-partida-fix">
+(function(){
+ 'use strict';
+ const btn=document.getElementById('omExportFull');
+ if(!btn)return;
+ btn.addEventListener('click',function(){
+  try{
+   let data=null;
+   if(typeof window.collectGame==='function') data=window.collectGame();
+   else if(typeof collectGame==='function') data=collectGame();
+   if(!data||typeof data!=='object') throw new Error('No se pudo reunir el estado de la partida.');
+   const json=JSON.stringify(data,null,2);
+   if(!json||json==='{}') throw new Error('La partida está vacía; no se generó el archivo.');
+   const blob=new Blob([json],{type:'application/json;charset=utf-8'});
+   const url=URL.createObjectURL(blob);
+   const a=document.createElement('a');
+   const dt=new Date();
+   const stamp=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0')+'_'+String(dt.getHours()).padStart(2,'0')+String(dt.getMinutes()).padStart(2,'0');
+   a.href=url;a.download='orden-mundial-partida-'+stamp+'.json';
+   a.style.display='none';document.body.appendChild(a);a.click();a.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),30000);
+   const status=document.getElementById('saveStatus');if(status)status.textContent='Copia exportada · '+dt.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+   if(typeof window.notify==='function')window.notify('Copia completa de la partida descargada.');
+  }catch(err){console.error('Error exportando ORDEN MUNDIAL:',err);if(typeof window.notify==='function')window.notify('No se pudo exportar: '+(err.message||'error desconocido'));else alert('No se pudo exportar: '+(err.message||'error desconocido'));}
+ });
+})();
+</script>
+
+<script id="om-autosave-after-every-turn-v1">
+(function(){
+ 'use strict';
+ const btn=document.getElementById('nextTurn');
+ if(!btn||btn.dataset.omTurnAutosave==='1')return;
+ btn.dataset.omTurnAutosave='1';
+ let timer=null;
+ btn.addEventListener('click',function(){
+  // Deja terminar los manejadores del turno y los procesos mensuales diferidos.
+  clearTimeout(timer);
+  timer=setTimeout(function(){
+   try{
+    if(typeof window.saveGame==='function')window.saveGame(true);
+    else if(typeof saveGame==='function')saveGame(true);
+   }catch(e){
+    console.error('ORDEN MUNDIAL: no se pudo iniciar el autoguardado del turno',e);
+    const status=document.getElementById('saveStatus');
+    if(status)status.textContent='⚠ Error al iniciar el autoguardado';
+   }
+  },1500);
+ });
 })();
 </script>
 
