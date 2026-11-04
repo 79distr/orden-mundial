@@ -99,6 +99,21 @@ input:focus,select:focus{outline:2px solid #59cbb8;outline-offset:1px}
 .om-mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.om-mode-card{padding:19px;border:1px solid #2d465a;border-radius:14px;background:linear-gradient(145deg,#192e40,#101c29);display:flex;flex-direction:column;min-height:220px}.om-mode-card h3{margin:8px 0;font-size:17px}.om-mode-card p{color:#a5b8c8;font-size:12px;line-height:1.55;flex:1}.om-mode-icon{font-size:30px}.om-mode-card button{width:100%;margin-top:12px}
 @media(max-width:600px){.om-mode-box{padding:18px}.om-mode-grid{grid-template-columns:1fr}.om-mode-card{min-height:0}}
 </style>
+
+<style id="om-ministry-navigation-css">
+#nav{display:grid;gap:7px}
+#nav>.nav-ministry{border:1px solid var(--line);border-radius:10px;background:#101d2a;overflow:hidden}
+#nav>.nav-ministry>summary{list-style:none;cursor:pointer;padding:11px 9px;color:#d9e8f1;font-size:11px;font-weight:800;line-height:1.35;letter-spacing:.25px;display:flex;align-items:center;gap:6px}
+#nav>.nav-ministry>summary::-webkit-details-marker{display:none}
+#nav>.nav-ministry>summary:after{content:'＋';margin-left:auto;color:var(--accent);font-size:13px}
+#nav>.nav-ministry[open]>summary:after{content:'−'}
+#nav>.nav-ministry[open]>summary{border-bottom:1px solid var(--line);background:#17283a}
+#nav .nav-ministry-items{display:grid;gap:3px;padding:5px}
+#nav .nav-ministry-items button{width:100%;font-size:11px;padding:8px 7px 8px 9px;border-radius:7px}
+#nav .nav-ministry-items button .ico{width:19px;flex:0 0 19px}
+#nav>.nav-ministry[open]{box-shadow:0 4px 14px #0002}
+@media(max-width:720px){#nav>.nav-ministry>summary{font-size:12px;padding:13px 10px}#nav .nav-ministry-items button{font-size:12px;padding:10px}}
+</style>
 </head>
 <body>
 <div id="omModeSelect" role="dialog" aria-modal="true" aria-labelledby="omModeTitle">
@@ -2367,10 +2382,10 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
  function processMonth(){const t=turnNow();if(W.lastTurn===t)return;W.lastTurn=t;const names=nations();
   names.forEach(name=>{const e=economy(name),f=fundamentals(name),p=W.policies[name]||{mode:'normal',rate:e.rate};const prev=Number(e.inflation)||4.2;
    // Demanda y oferta: no existe una deriva inflacionaria aleatoria permanente.
-   const rateEffect=(Number(e.rate)<4?0.10:Number(e.rate)>18?-0.13:Number(e.rate)>13?-0.06:0);
+   const rateEffect=(Number(e.rate)<4?0.06:Number(e.rate)>18?-0.08:Number(e.rate)>13?-0.04:0);
    const stabilityEffect=(55-f.st)*0.006;
-   const reserveRelief=f.reserves>100?-.025:f.reserves>25?-.012:0;
-   const currencyRelief=-Math.max(-2,Math.min(2,f.fxStrength))*.025;
+   const reserveRelief=f.reserves>150?-.055:f.reserves>75?-.035:f.reserves>25?-.015:f.reserves<5?.055:f.reserves<15?.03:0;
+   const currencyRelief=-Math.max(-3,Math.min(3,f.fxStrength))*.04;
    const resourceShock=((100-(W.resources.oil||100))*.004)+((100-(W.resources.food||100))*.003)+((100-(W.resources.technology||100))*.0015);
    const unemploymentPressure=(Number(e.unemployment)>12?.045:Number(e.unemployment)<5?-.025:0);
    const fiscalPressure=(f.treasury<0?.09:0);
@@ -2389,7 +2404,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   if(Math.random()<.12){const headlines=['Los mercados revisan sus previsiones de crecimiento.','Una cumbre regional busca reducir barreras comerciales.','Empresas multinacionales anuncian nuevos proyectos de inversión.','Organismos internacionales advierten sobre riesgos financieros.','Los gobiernos debaten nuevas normas para el comercio tecnológico.'];news('Panorama internacional',headlines[Math.floor(Math.random()*headlines.length)]);}
   save();
  }
- window.omWorldSystemsRender=function(){const c=country(),e=economy(c),ap=W.approvalByCountry[c]??(typeof approval!=='undefined'?approval:50);return `<div class="om-hero"><div><small>SIMULACIÓN GLOBAL · BANCO CENTRAL</small><h2>Banco Central</h2><p>La inflación responde a tasas, estabilidad, reservas, moneda, producción, empleo y shocks de oferta. Cada país mantiene sus propios indicadores.</p></div><div class="om-ai-status"><b>🌐 Mundo autónomo</b><span>Indicadores nacionales por país.</span></div></div>
+ window.omWorldSystemsRender=function(){const c=country(),e=economy(c),ap=W.approvalByCountry[c]??(typeof approval!=='undefined'?approval:50);return `<div class="om-hero"><div><small>SIMULACIÓN GLOBAL · BANCO CENTRAL</small><h2>Banco Central</h2><p>La inflación se calcula combinando tasa de interés, reservas internacionales, presión cambiaria, estabilidad, situación fiscal, producción, empleo y shocks de oferta; ningún instrumento actúa por sí solo. Cada país mantiene sus propios indicadores.</p></div><div class="om-ai-status"><b>🌐 Mundo autónomo</b><span>Indicadores nacionales por país.</span></div></div>
  <h3>🏦 Banco Central de ${esc(c)}</h3><div class="om-market-grid"><div class="om-market-item"><span>Inflación estimada</span><b>${money(e.inflation)}%</b><small>Variación mensual del índice simulado</small></div><div class="om-market-item"><span>Tasa de interés</span><b>${money(e.rate)}%</b><small>Política monetaria nacional</small></div><div class="om-market-item"><span>Desempleo</span><b>${money(e.unemployment)}%</b><small>Mercado laboral</small></div><div class="om-market-item"><span>Aprobación</span><b>${money(ap)}%</b><small>${esc(c)}</small></div><div class="om-market-item"><span>Índice petróleo</span><b>${W.resources.oil}</b><small>Base 100</small></div><div class="om-market-item"><span>Índice alimentos</span><b>${W.resources.food}</b><small>Base 100</small></div></div>
  <div class="om-territory"><h3>Decisiones de política monetaria</h3><p>Las tasas altas moderan demanda y presiones de precios, pero pueden elevar el desempleo. El crédito productivo impulsa actividad, aunque aumenta gradualmente la demanda.</p><div class="two"><div class="field"><label>Tasa objetivo (%)</label><input id="omRate" type="number" min="0" max="40" step="0.5" value="${money(e.rate)}"></div><div class="field"><label>Instrumento</label><select id="omPolicy"><option value="normal">Ajuste gradual</option><option value="stimulus">Crédito productivo</option><option value="austerity">Endurecimiento monetario</option></select></div></div><button class="primary" onclick="omSetMonetaryPolicy()">Aplicar política monetaria</button></div>
  <h3>🗳️ Calendario electoral</h3><div class="om-territory"><p>La popularidad y la estabilidad influyen en el resultado. Las elecciones se celebran cada 48 meses en esta simulación.</p>${W.election?`<p><b>Elecciones convocadas:</b> ${esc(W.election.country)} · faltan ${Math.max(0,W.election.due-(typeof turn!=='undefined'?turn:0))} meses.</p>`:`<button class="primary" onclick="omCallElection()">Convocar elecciones (en 6 meses)</button>`}<p>Último resultado: ${esc(W.lastElection||'Todavía no hubo elecciones registradas.')}</p></div>
@@ -3126,11 +3141,15 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
   out.push({name:'Asesor de relaciones exteriores',icon:'🌐',diag:`Promedio de relaciones bilaterales disponibles: ${averageRelation===null?'dato no disponible':averageRelation.toFixed(0)+'/100'} · solicitudes pendientes: ${pendingDiplomacy}.`,level:'Agenda exterior',recs:dipRecs,actions:[['Abrir diplomacia','Diplomacia'],['Ver bloques','Bloques y FMI'],['Mercado internacional','Mercado mundial']]});
   // SOCIEDAD
   let socialRecs=[];
-  if(approval<40)socialRecs.push('La aprobación es baja. Abrir diálogo con provincias, sindicatos, empresas y oposición; identificar el costo social de las medidas antes de anunciarlas.');
-  else socialRecs.push('Monitorear aprobación y estabilidad junto con empleo, salarios y acceso a servicios; no interpretar un solo indicador como diagnóstico social completo.');
+  const taxNow=num(typeof fiscalRates!=='undefined'?fiscalRates.consumption:0),retNow=num(typeof fiscalRates!=='undefined'?fiscalRates.retention:0),tarNow=num(typeof fiscalRates!=='undefined'?fiscalRates.tariff:0);
+  const politicalState=safeGet(()=>window.omBancoCentralState?.election,null);
+  if(approval<40)socialRecs.push(`La aprobación está en ${approval.toFixed(0)}%. Medida sugerida: abrir una ronda de diálogo con oposición, sindicatos, empresas y gobiernos subnacionales antes de anunciar nuevas reformas; publicar costo fiscal y compensaciones.`);
+  else socialRecs.push(`La aprobación está en ${approval.toFixed(0)}%. Mantener seguimiento mensual de aprobación, estabilidad, inflación y desempleo; consultar sectores afectados antes de reformas de alto impacto.`);
+  socialRecs.push(`Situación tributaria que debe considerar el gabinete: consumo ${taxNow}%, retenciones ${retNow}% y aranceles ${tarNow}%. No recomendar reducciones sobre instrumentos que ya estén en 0%.`);
+  if(politicalState)socialRecs.push(`Hay un proceso electoral registrado: ${politicalState.result||('próxima elección en turno '+politicalState.due)}. Evaluar calendario político y legitimidad de las reformas.`);
   if(stability<45)socialRecs.push('La estabilidad institucional requiere atención: fortalecer mecanismos de diálogo, continuidad de servicios esenciales y transparencia pública.');
   else socialRecs.push('Preservar la estabilidad con previsibilidad normativa y evaluación pública de resultados.');
-  out.push({name:'Asesor social y de gobernabilidad',icon:'👥',diag:`Aprobación: ${approval.toFixed(0)}% · estabilidad: ${stability.toFixed(0)}/100.`,level:approval<40||stability<45?'Atención social':'Seguimiento',recs:socialRecs,actions:[['Abrir sociedad','Sociedad'],['Política interna','Política interna'],['Ver gobierno','Gobierno']]});
+  out.push({name:'Asesor social y de gobernabilidad',icon:'👥',diag:`Aprobación: ${approval.toFixed(0)}% · estabilidad: ${stability.toFixed(0)}/100 · impuestos: consumo ${taxNow}%, retenciones ${retNow}%, aranceles ${tarNow}%.`,level:approval<40||stability<45?'Atención social':'Seguimiento',recs:socialRecs,actions:[['Abrir sociedad','Sociedad'],['Política interna','Política interna'],['Ver gobierno','Gobierno']]});
   // INFRAESTRUCTURA
   out.push({name:'Asesor de infraestructura',icon:'🏗️',diag:`Proyectos internacionales activos vinculados al país: ${infra.length}.`,level:'Planificación',recs:[infra.length?'Controlar cronograma, sobrecostos y distribución de beneficios de los proyectos en marcha.':'No se registran proyectos internacionales activos vinculados al país; evaluar cuellos de botella logísticos antes de iniciar obras.', 'Priorizar mantenimiento de infraestructura existente, puertos, ferrocarriles, energía y conectividad antes de anunciar grandes obras nuevas.','Exigir evaluación de impacto, financiación completa y estimación de demanda para cada proyecto.'],actions:[['Infraestructura','Infraestructura internacional'],['Industria','Industria']]});
   // INTELIGENCIA
@@ -3161,10 +3180,14 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
   window.selectSection?.('Economía');
   setTimeout(()=>{
    const tax=$('tax'),ret=$('retention'),tar=$('tariff');if(!tax||!ret||!tar)return;
-   const nextTax=Math.max(0,Number(tax.value)-1),nextRet=Math.max(0,Number(ret.value)-2),nextTar=Math.max(0,Number(tar.value)-2);
+   const before={tax:Number(tax.value),ret:Number(ret.value),tar:Number(tar.value)};
+   const nextTax=before.tax>0?Math.max(0,before.tax-1):0;
+   const nextRet=before.ret>0?Math.max(0,before.ret-2):0;
+   const nextTar=before.tar>0?Math.max(0,before.tar-2):0;
+   if(before.tax===0&&before.ret===0&&before.tar===0){const note=$('fiscalSummary');if(note)note.textContent='No hay margen para reducir impuestos: consumo, retenciones y aranceles ya están en 0%. El asesor recomienda revisar tasa de interés, reservas, gasto y productividad.';notify('No se modificó la política fiscal: todos los tributos ya están en 0%.');return;}
    [[tax,nextTax,'taxVal'],[ret,nextRet,'retentionVal'],[tar,nextTar,'tariffVal']].forEach(([el,v,label])=>{el.value=v;const l=$(label);if(l)l.textContent=v+'%';});
-   const note=$('fiscalSummary');if(note)note.textContent='Propuesta del asesor: alivio gradual de cargas (consumo −1 punto, retenciones −2 puntos y aranceles −2 puntos). Revisá el efecto fiscal y aprobá solo si estás de acuerdo.';
-   notify('Plan fiscal preparado. Revisá los valores y pulsá “Aprobar política tributaria” para aplicarlo.');
+   const note=$('fiscalSummary');if(note)note.textContent=`Propuesta ajustada a las tasas actuales: consumo ${before.tax}% → ${nextTax}%; retenciones ${before.ret}% → ${nextRet}%; aranceles ${before.tar}% → ${nextTar}%. Revisá la recaudación estimada y aprobá solo si estás de acuerdo.`;
+   notify('Propuesta fiscal ajustada a los impuestos vigentes. Revisá y aprobá si estás de acuerdo.');
   },80);
  };
  window.omAdvisorDefenseInvestment=function(){
@@ -3176,7 +3199,9 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  function advisorActionPanel(a){
   if(a.name==='Asesoría económica y monetaria'){
    const co=ensureChinaLogisticsListing(),qty=co?Math.min(100000,Math.floor(num(co.floatShares))):0,cost=co?qty*num(co.price)/1e9:0;
-   return `<div class="om-card" style="margin-top:14px;border:1px solid var(--line,#40556c)"><h4>Medidas concretas propuestas</h4><p><b>Oportunidad bursátil:</b> ${esc(co?.name||'Empresa logística china')} · China · Transporte y logística. Cotización: USD ${co?num(co.price).toLocaleString('es-AR'): '—'} por acción. El asesor propone evaluar una posición inicial de hasta ${qty.toLocaleString('es-AR')} acciones (costo estimado USD ${cost.toLocaleString('es-AR',{maximumFractionDigits:4})} mil M).</p><button type="button" class="primary" onclick="window.omAdvisorBuyChinaLogistics()">Evaluar y comprar acciones</button><p class="om-note" style="margin-top:10px">La compra requiere confirmación, se descuenta del presupuesto y queda registrada en la cartera bursátil. Es una inversión extranjera con riesgo de mercado y cambiario.</p><hr style="opacity:.2;margin:12px 0"><p><b>Medida fiscal:</b> preparar una reducción gradual de 1 punto en impuesto al consumo, 2 puntos en retenciones y 2 puntos en aranceles para aliviar costos. No garantiza por sí sola una caída de la inflación; implica menor recaudación potencial y debe evaluarse con el presupuesto.</p><button type="button" onclick="window.omAdvisorPrepareFiscalPlan()">Preparar propuesta fiscal en Economía</button><p class="om-note">El simulador no ofrece en este panel una orden directa para fijar tasas de interés; este ajuste tributario no controla por sí solo la inflación ni estabiliza la moneda.</p></div>`;
+   const tax=num(typeof fiscalRates!=='undefined'?fiscalRates.consumption:0),ret=num(typeof fiscalRates!=='undefined'?fiscalRates.retention:0),tar=num(typeof fiscalRates!=='undefined'?fiscalRates.tariff:0);
+   const fiscalAdvice=tax>0?`Impuesto al consumo vigente: ${tax}%. Puede evaluarse una reducción de 1 punto (a ${Math.max(0,tax-1)}%), con menor recaudación potencial.`:(ret>0||tar>0?`El impuesto al consumo ya está en 0%; no corresponde recomendar bajarlo. Revisar retenciones (${ret}%) o aranceles (${tar}%) solo si existe un objetivo económico y fiscal concreto.`:'Los tres instrumentos tributarios están en 0%; no se recomienda una reducción adicional. Priorizar política monetaria, reservas, productividad y disciplina fiscal.');
+   return `<div class="om-card" style="margin-top:14px;border:1px solid var(--line,#40556c)"><h4>Medidas concretas propuestas</h4><p><b>Oportunidad bursátil:</b> ${esc(co?.name||'Empresa logística china')} · China · Transporte y logística. Cotización: USD ${co?num(co.price).toLocaleString('es-AR'): '—'} por acción. Posición sugerida: hasta ${qty.toLocaleString('es-AR')} acciones (costo estimado USD ${cost.toLocaleString('es-AR',{maximumFractionDigits:4})} mil M).</p><button type="button" class="primary" onclick="window.omAdvisorBuyChinaLogistics()">Evaluar y comprar acciones</button><p class="om-note">La compra requiere confirmación, se descuenta del presupuesto y queda registrada en cartera.</p><hr style="opacity:.2;margin:12px 0"><p><b>Diagnóstico tributario basado en tu partida:</b> ${fiscalAdvice}</p><button type="button" onclick="window.omAdvisorPrepareFiscalPlan()">Preparar medida fiscal viable</button><p class="om-note">La recomendación se recalcula con las tasas vigentes. No propone bajar un impuesto que ya está en cero.</p></div>`;
   }
   if(a.name==='Asesor de defensa y seguridad'){
    return `<div class="om-card" style="margin-top:14px;border:1px solid var(--line,#40556c)"><h4>Medida concreta propuesta</h4><p><b>Programa de disuasión y preparación:</b> asignar USD 5 mil M para mejorar el nivel de disuasión, la preparación y la capacidad militar nacional. Es una inversión abstracta de defensa; no inicia conflictos ni despliega fuerzas automáticamente.</p><button type="button" class="primary" onclick="window.omAdvisorDefenseInvestment()">Evaluar inversión de USD 5 mil M</button><p class="om-note">La operación requiere tu confirmación y presupuesto suficiente. También conviene revisar mantenimiento, logística, protección civil y seguridad de infraestructura crítica antes de ampliar capacidades.</p></div>`;
@@ -3196,5 +3221,148 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
 })();
 </script>
 
+
+<script id="om-ministry-navigation">
+(function(){
+  const nav=document.getElementById('nav');
+  if(!nav || nav.dataset.ministriesOrganized==='1') return;
+  nav.dataset.ministriesOrganized='1';
+  const original=[...nav.querySelectorAll(':scope > button')];
+  const bySection=new Map();
+  original.forEach(b=>{const k=b.dataset.section;if(k&&!bySection.has(k))bySection.set(k,b)});
+  const label=(key,text)=>{const b=bySection.get(key);if(!b)return;const icon=b.querySelector('.ico')?.textContent||'•';b.innerHTML=`<span class="ico">${icon}</span>${text}`;};
+  label('Mercado mundial','Mercado internacional');
+  label('Guerra','Guerras y conflictos');
+  label('Armas','Mercado de armas');
+  label('Consejo mundial','Banco Central');
+  label('Bloques y FMI','Bloques internacionales');
+  label('Inteligencia','Informes de influencia');
+
+  // The route keys below are the existing sections; only their visual grouping changes.
+  const groups=[
+    {id:'defensa',title:'🛡️ Ministerio de Defensa y Relaciones Internacionales',items:[
+      ['Diplomacia'],['Doctrina militar'],['Inteligencia y contrainteligencia'],['Inteligencia'],['Asistencia militar'],['Guerra'],['Defensa'],['Armas'],['Informes']
+    ]},
+    {id:'economia',title:'📊 Ministerio de Economía',items:[
+      ['Economía'],['Consejo mundial'],['Mercado mundial'],['FMI'],['Divisas'],['Fondo soberano'],['Inversiones e influencia'],['Bolsas'],['Industrias y recursos'],['Industria'],['Crisis económicas'],['Tecnología'],['Crisis globales']
+    ]},
+    {id:'embajadas',title:'🏛️ Embajadas y Cooperación Internacional',items:[
+      ['Embajadas'],['Infraestructura internacional'],['Negociaciones territoriales'],['Territorios'],['Bloques y FMI'],['ONU']
+    ]},
+    {id:'politica',title:'👥 Ministerio de Política Interna',items:[
+      ['Gobierno'],['Política interna'],['Sociedad']
+    ]},
+    {id:'otros',title:'🌐 Otros organismos y seguimiento',items:[
+      ['Países'],['Eventos'],['Eventos mundiales'],['Objetivos nacionales'],['Noticias'],['Memoria histórica']
+    ]}
+  ];
+  const used=new Set(['Mapa mundial']);
+  groups.forEach(g=>g.items.forEach(x=>used.add(x[0])));
+  const frag=document.createDocumentFragment();
+  const mapBtn=bySection.get('Mapa mundial');
+  if(mapBtn)frag.appendChild(mapBtn);
+  groups.forEach((g,i)=>{
+    const d=document.createElement('details');d.className='nav-ministry';d.dataset.ministry=g.id;
+    if(i===0)d.open=true;
+    const s=document.createElement('summary');s.textContent=g.title;d.appendChild(s);
+    const sub=document.createElement('div');sub.className='nav-ministry-items';
+    g.items.forEach(([key])=>{const b=bySection.get(key);if(b){sub.appendChild(b);}});
+    d.appendChild(sub);frag.appendChild(d);
+  });
+  const extras=original.filter(b=>!used.has(b.dataset.section));
+  if(extras.length){
+    const d=document.createElement('details');d.className='nav-ministry';d.dataset.ministry='otros-extra';
+    const s=document.createElement('summary');s.textContent='📚 Herramientas y archivos';d.appendChild(s);
+    const sub=document.createElement('div');sub.className='nav-ministry-items';extras.forEach(b=>sub.appendChild(b));d.appendChild(sub);frag.appendChild(d);
+  }
+  nav.replaceChildren(frag);
+  const activeGroupFor=section=>{
+    const b=[...nav.querySelectorAll('button[data-section]')].find(x=>x.dataset.section===section);
+    const d=b?.closest('details.nav-ministry');if(d)d.open=true;
+  };
+  const prior=window.selectSection;
+  if(typeof prior==='function'&&!prior.__ministryNavWrapped){
+    const wrapped=function(section,...args){const result=prior.call(this,section,...args);activeGroupFor(section);return result};
+    wrapped.__ministryNavWrapped=true;window.selectSection=wrapped;
+    try{selectSection=wrapped}catch(e){}
+  }
+  nav.addEventListener('click',e=>{const b=e.target.closest('button[data-section]');if(b)activeGroupFor(b.dataset.section)});
+  const active=nav.querySelector('button.active[data-section]');if(active)activeGroupFor(active.dataset.section);
+})();
+
+</script>
+
+<script id="om-secretaria-presidencial-v1">
+(()=>{
+ 'use strict'; if(window.omSecretariaPresidencialV1)return; window.omSecretariaPresidencialV1=true;
+ const $=id=>document.getElementById(id), n=v=>{const x=Number(v);return Number.isFinite(x)?x:0};
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const me=()=>{try{return currentCountry||'Argentina'}catch(e){return 'Argentina'}};
+ const fmt=v=>n(v).toLocaleString('es-AR',{maximumFractionDigits:2});
+ function fxQuote(){const f=window.omFX||{},code=f.countryCurrency?.[me()]||f.nationalCurrencyByCountry?.[me()]||'ARS',cur=f.currencies?.[code]||{};if(code==='USD')return {code,quote:'1 USD = 1 USD',perUSD:1};const per=n(cur.perUSD)||null;return {code,quote:per?`1 USD = ${fmt(per)} ${code}`:'Cotización no disponible',perUSD:per};}
+ function commodityOrders(){const state=window.omCommodityMarket?.state?.();return state?.orders||window.omCapitalMarketsV1?.commodityOrders||[];}
+ function pendingOrders(){return commodityOrders().filter(o=>o.status==='Pendiente'&&(o.buyer===me()||o.seller===me()));}
+ function macro(){const e=window.omBancoCentralState?.economies?.[me()]||window.omBancoCentralState||{};return {inflation:n(e.inflation),rate:n(e.rate),unemployment:n(e.unemployment)};}
+ function events(){return (Array.isArray(history)?history:[]).slice().reverse().slice(0,35);}
+ function alertRows(){const rows=[],orders=pendingOrders(),quote=fxQuote(),m=macro();orders.forEach(o=>rows.push({level:'urgent',title:'Solicitud comercial pendiente',text:`${o.buyer} solicita ${o.qty} unidades de ${o.resource==='crude'?'petróleo':o.resource} a ${o.seller}. Revisar precio, moneda y logística.`,action:'Mercado mundial',button:'Revisar operación'}));
+  const pendingDip=safe(()=>diplomacyRequests.filter(x=>x.status==='Pendiente'&&(x.from===me()||x.target===me())).length,0); if(pendingDip)rows.push({level:'attention',title:'Agenda diplomática',text:`Hay ${pendingDip} solicitud(es) diplomática(s) pendientes de respuesta.`,action:'Diplomacia',button:'Abrir diplomacia'});
+  const pendingONU=safe(()=>consultations.filter(x=>x.status==='Pendiente'&&(x.from===me()||x.target===me())).length,0);if(pendingONU)rows.push({level:'attention',title:'Expedientes multilaterales',text:`Hay ${pendingONU} expediente(s) de la ONU pendientes.`,action:'ONU',button:'Ver expedientes'});
+  const activeConflicts=safe(()=>wars.filter(w=>w.status==='active'&&(w.attacker===me()||w.target===me())).length,0);if(activeConflicts)rows.push({level:'urgent',title:'Conflictos activos',text:`Tu país está involucrado en ${activeConflicts} conflicto(s) activo(s). Revisar situación militar, presupuesto y canales diplomáticos.`,action:'Guerra',button:'Revisar conflictos'});
+  // Seguimiento geopolítico mundial: informa conflictos aunque el país gobernado no participe.
+  const allActive=safe(()=>wars.filter(w=>w.status==='active'),[]);
+  allActive.forEach(w=>{const involved=[w.attacker,w.target].filter(Boolean);const mine=involved.includes(me());const companies=safe(()=>window.omCapitalMarketsV1?.companies||[],[]);const exposed=companies.filter(c=>involved.includes(c.country)&&Number(c.holdings?.[me()]||0)>0);const exposureText=exposed.length?` Hay ${exposed.length} empresa(s) de tu cartera radicadas en los países enfrentados: ${exposed.map(c=>`${c.name} (${(100*Number(c.holdings?.[me()]||0)/Math.max(1,Number(c.sharesOutstanding)||1)).toFixed(1)}% de participación)`).join('; ')}.`:'';rows.push({level:exposed.length||mine?'urgent':'attention',title:`Conflicto internacional: ${w.attacker} – ${w.target}`,text:`Conflicto activo entre ${w.attacker} y ${w.target}. ${mine?'Tu país está directamente involucrado.':'Aunque tu país no participa, Presidencia debe seguir la evolución.'}${exposureText} Evaluar riesgo operativo, caída de cotización, interrupción logística, sanciones y protección de activos.`,action:exposed.length?'Bolsas':'Guerra',button:exposed.length?'Revisar activos':'Ver situación'});});
+  const recentGeopolitical=safe(()=>history.filter(h=>/militar|moviliza|movilización|ataque|ofensiva|escalada|conflicto|invasión|tropas/i.test(String(h.text||h.message||h.title||''))).slice(-5),[]);
+  recentGeopolitical.forEach(h=>rows.push({level:'attention',title:'Alerta geopolítica internacional',text:String(h.text||h.message||h.title),action:'Noticias',button:'Leer informe'}));
+  const pendingCorp=safe(()=>window.omCapitalMarketsV1?.corporateOffers?.filter(o=>o.status==='Pendiente'&&(o.aCountry===me()||o.bCountry===me()||o.aId||o.bId)).length,0);if(pendingCorp)rows.push({level:'attention',title:'Negociaciones empresariales',text:`Hay ${pendingCorp} propuesta(s) corporativa(s) pendiente(s) de respuesta o decisión.`,action:'Bolsas',button:'Revisar empresas'});
+  if(m.inflation>=12)rows.push({level:'urgent',title:'Alerta inflacionaria',text:`Inflación simulada en ${fmt(m.inflation)}%. Revisar tasa, reservas, situación fiscal y shocks de oferta.`,action:'Consejo mundial',button:'Abrir Banco Central'});
+  if(quote.perUSD&&quote.code==='ARS'&&quote.perUSD>=1500)rows.push({level:'attention',title:'Presión cambiaria',text:`El dólar cotiza a ${fmt(quote.perUSD)} ${quote.code} en el modelo. Revisar reservas y demanda de divisas.`,action:'Divisas',button:'Abrir divisas'});
+  return rows;
+ }
+ function safe(fn,fb=0){try{return fn()}catch(e){return fb}}
+ function render(){const q=fxQuote(),m=macro(),pending=pendingOrders(),alerts=alertRows(),feed=events(),currencyLabel=q.quote;
+  const recentOrders=pending.map(o=>`<div class="news"><small>COMERCIO INTERNACIONAL · ${esc(o.status)}</small><p><b>${esc(o.buyer)}</b> solicita a <b>${esc(o.seller)}</b> ${fmt(o.qty)} unidades de ${esc(o.resource==='crude'?'petróleo':o.resource)}. <button type="button" onclick="window.selectSection('Mercado mundial')">Revisar</button></p></div>`).join('')||'<p class="muted">No hay solicitudes comerciales pendientes para tu país.</p>';
+  const alertHTML=alerts.map(a=>`<div class="news" style="border-left:3px solid ${a.level==='urgent'?'#e47d7d':'#e9bd69'};padding-left:10px"><small>${a.level==='urgent'?'PRIORIDAD ALTA':'SEGUIMIENTO'} · ${esc(a.title)}</small><p>${esc(a.text)} <button type="button" onclick="window.selectSection('${esc(a.action)}')">${esc(a.button)} →</button></p></div>`).join('')||'<p class="muted">No hay alertas prioritarias en este momento.</p>';
+  const eventHTML=feed.map(x=>`<div class="news"><small>${esc(x.date)} · ${esc(x.kind)}</small><p>${esc(x.text)}</p></div>`).join('')||'<p class="muted">Todavía no hay novedades registradas en esta partida.</p>';
+  const budgetText=$('budget')?.textContent||'—',gdpText=$('gdp')?.textContent||'—',approvalText=$('approval')?.textContent||'—',stabilityText=$('stability')?.textContent||'—';
+  const tax=(typeof fiscalRates!=='undefined'?fiscalRates:{consumption:0,retention:0,tariff:0});
+  const conflictCount=safe(()=>wars.filter(w=>w.status==='active'&&(w.attacker===me()||w.target===me())).length,0);
+  return `<section id="omSecretariaPanel"><div class="om-hero"><div><span class="om-kicker">PRESIDENCIA · PARTE DIARIO DE GOBIERNO</span><h2>Secretaría de Presidencia</h2><p>Un centro de seguimiento nacional e internacional: monitorea conflictos aunque tu país no participe y cruza los países involucrados con las empresas de tu cartera para detectar activos comprometidos. No ejecuta decisiones: presenta informes para que evalúes medidas.</p></div><div class="om-hero-badge">📨 ${alerts.length} alertas</div></div>
+  <div class="om-grid-2" style="margin:14px 0"><article class="om-card"><h3>Situación nacional · ${esc(me())}</h3><div class="mini-grid"><div class="mini"><span>PIB</span><strong>${esc(gdpText)}</strong></div><div class="mini"><span>Presupuesto</span><strong>${esc(budgetText)}</strong></div><div class="mini"><span>Aprobación</span><strong>${esc(approvalText)}</strong></div><div class="mini"><span>Estabilidad</span><strong>${esc(stabilityText)}</strong></div><div class="mini"><span>Inflación simulada</span><strong>${fmt(m.inflation)}%</strong></div><div class="mini"><span>Tasa de referencia</span><strong>${fmt(m.rate)}%</strong></div><div class="mini"><span>Desempleo</span><strong>${fmt(m.unemployment)}%</strong></div><div class="mini"><span>Tipo de cambio</span><strong>${esc(currencyLabel)}</strong></div><div class="mini"><span>Impuesto al consumo</span><strong>${fmt(tax.consumption)}%</strong></div><div class="mini"><span>Retenciones / aranceles</span><strong>${fmt(tax.retention)}% / ${fmt(tax.tariff)}%</strong></div><div class="mini"><span>Conflictos activos</span><strong>${conflictCount}</strong></div></div></article><article class="om-card"><h3>Alertas y asuntos que requieren decisión</h3>${alertHTML}</article></div>
+  <article class="om-card" style="margin-bottom:14px"><h3>Solicitudes de compra de recursos</h3><p class="muted">Pedidos de países y ofertas que esperan una respuesta del gobierno.</p>${recentOrders}<button class="primary" type="button" onclick="window.selectSection('Mercado mundial')">Ir al mercado internacional</button></article>
+  <article class="om-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h3>Últimas novedades del Estado</h3><button type="button" onclick="window.omRefreshSecretaria()">↻ Actualizar parte</button></div><div>${eventHTML}</div><button type="button" onclick="window.selectSection('Noticias')">Abrir archivo completo de noticias</button></article>
+  <p class="om-note" style="margin-top:12px">Los datos son los registrados por la simulación. Si un indicador no está disponible, no se inventa. La cotización muestra la paridad interna del juego, no un tipo de cambio real.</p></section>`;
+ }
+ window.omRefreshSecretaria=()=>{const body=$('workspaceBody');if(body&&document.querySelector('#nav button.active')?.dataset.section==='Secretaría de Presidencia')body.innerHTML=render();};
+ const nav=$('nav');if(nav&&!nav.querySelector('[data-section="Secretaría de Presidencia"]')){const group=document.createElement('details');group.className='nav-ministry';group.dataset.ministry='presidencia';group.open=true;const sum=document.createElement('summary');sum.textContent='📨 Presidencia';const box=document.createElement('div');box.className='nav-ministry-items';const b=document.createElement('button');b.type='button';b.dataset.section='Secretaría de Presidencia';b.innerHTML='<span class="ico">📨</span>Secretaría de Presidencia';b.addEventListener('click',()=>window.selectSection('Secretaría de Presidencia'));box.appendChild(b);group.append(sum,box);nav.insertBefore(group,nav.firstChild);}
+ const prior=window.selectSection||selectSection;window.selectSection=function(section,...args){const out=prior.call(this,section,...args);if(section==='Secretaría de Presidencia'){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.section===section));$('workspaceTitle').textContent='Secretaría de Presidencia';$('workspaceBody').innerHTML=render();$('workspaceBody').classList.add('om-workspace');}return out;};
+ const next=$('nextTurn');if(next)next.addEventListener('click',()=>setTimeout(()=>window.omRefreshSecretaria(),50));
+ const priorNews=window.addNews;if(typeof priorNews==='function')window.addNews=function(...args){const result=priorNews.apply(this,args);setTimeout(()=>window.omRefreshSecretaria(),0);return result;};
+ window.addEventListener('om:news',()=>window.omRefreshSecretaria());
+})();
+</script>
+
+<script id="om-gdp-and-fiscal-persistence-fix">
+(function(){
+ 'use strict';
+ const $=id=>document.getElementById(id);
+ const parseGDP=value=>{const t=String(value||'').replace(/\$/g,'').trim().toLowerCase();const n=Number((t.match(/[0-9.,]+/)||['640'])[0].replace(/\./g,'').replace(',','.'));return Number.isFinite(n)?(t.includes('billón')?n*1000:n):640};
+ const fmtGDP=value=>value>=1000?'$'+(value/1000).toFixed(2).replace('.',',')+' billones':'$'+value.toFixed(1).replace('.',',')+' mil M';
+ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+ const gdpByCountry={};
+ Object.keys(typeof countries!=='undefined'?countries:{}).forEach(n=>{gdpByCountry[n]={value:parseGDP(countries[n].gdp),history:[]}});
+ function stateFor(country){if(!gdpByCountry[country])gdpByCountry[country]={value:parseGDP(countries[country]?.gdp),history:[]};return gdpByCountry[country]}
+ function syncGDP(){const c=countries[currentCountry],st=stateFor(currentCountry);if(c)c.gdp=fmtGDP(st.value);if($('gdp'))$('gdp').textContent=fmtGDP(st.value);if($('countryGDP'))$('countryGDP').textContent=fmtGDP(st.value);}
+ function updateGDP(){const st=stateFor(currentCountry),prev=st.value;const pi=(typeof publicIndicators!=='undefined'?publicIndicators:{});const infra=Number(pi.infraestructura??50),tech=Number(pi.tecnologia??50),edu=Number(pi.educacion??50);const ret=Object.values(window.sectorFiscalRates||{general:fiscalRates.retention||15}).reduce((a,b)=>a+Number(b||0),0)/Math.max(1,Object.keys(window.sectorFiscalRates||{general:fiscalRates.retention||15}).length);const warCount=(typeof wars!=='undefined'?wars:[]).filter(w=>w.status==='active').length;const activeProjects=typeof omProductive!=='undefined'&&Array.isArray(omProductive.projects)?omProductive.projects.filter(p=>p.country===currentCountry&&p.status!=='Cancelado').length:0;const fiscalDrag=Math.max(-.18,Math.min(.12,(Number(fiscalRates.consumption||0)-18)*-.004+(Number(fiscalRates.tariff||0)-12)*-.002));const growth=cl(.12+(infra-50)*.003+(tech-50)*.004+(edu-50)*.001+(Number(stability||50)-50)*.002-(ret-15)*.003+Math.min(.12,activeProjects*.025)-Math.min(.35,warCount*.10)+fiscalDrag+(Math.random()-.5)*.12,-.8,.8);st.value=Math.max(1,prev*(1+growth/100));st.history.push({turn:Number(turn)||0,year:Number(year)||2026,month:Number(month)||1,value:st.value,growth});if(st.history.length>180)st.history.shift();syncGDP();const trend=$('gdpTrend');if(trend)trend.textContent=(growth>=0?'▲ ':'▼ ')+Math.abs(growth).toFixed(2)+'% este mes';if(Number(turn)%3===0&&typeof addNews==='function')addNews('Producto interno bruto',`El PIB estimado de ${currentCountry} ${growth>=0?'creció':'se contrajo'} ${Math.abs(growth).toFixed(2)}% durante el mes y se ubica en ${fmtGDP(st.value)}. Variación calculada por actividad, infraestructura, tecnología, educación, estabilidad, carga tributaria y conflictos.`);}
+ // El país seleccionado conserva su propio PIB. Al cambiar de país, se muestra su valor correspondiente.
+ const oldSelectCountry=window.selectCountry;if(typeof oldSelectCountry==='function'&&!oldSelectCountry.__gdpWrapped){const wrapped=function(name){const r=oldSelectCountry.apply(this,arguments);syncGDP();return r};wrapped.__gdpWrapped=true;window.selectCountry=wrapped;try{selectCountry=wrapped}catch(e){}}
+ // Aplicar una vez por mes después de todos los procesadores de turno existentes.
+ const next=$('nextTurn');if(next&&!next.dataset.gdpWrapped){const old=next.onclick;next.onclick=function(ev){if(typeof old==='function')old.call(this,ev);updateGDP();if(typeof saveGame==='function')saveGame(true)};next.dataset.gdpWrapped='1';}
+ // Persistir PIB e impuestos sectoriales sin alterar el formato de los demás subsistemas.
+ const oldCollect=window.collectGame;if(typeof oldCollect==='function'&&!oldCollect.__gdpWrapped){const wrapped=function(){const d=oldCollect.apply(this,arguments);d.omGDPFiscal={gdpByCountry,sectorFiscalRates:window.sectorFiscalRates||sectorFiscalRates};return d};wrapped.__gdpWrapped=true;window.collectGame=wrapped;try{collectGame=wrapped}catch(e){}}
+ const oldRestore=window.restoreGame;if(typeof oldRestore==='function'&&!oldRestore.__gdpWrapped){const wrapped=function(data){const r=oldRestore.apply(this,arguments);const saved=data?.omGDPFiscal;if(saved?.gdpByCountry){Object.keys(gdpByCountry).forEach(k=>delete gdpByCountry[k]);Object.assign(gdpByCountry,saved.gdpByCountry)}if(saved?.sectorFiscalRates){Object.keys(sectorFiscalRates).forEach(k=>delete sectorFiscalRates[k]);Object.assign(sectorFiscalRates,saved.sectorFiscalRates)}else if(data?.fiscalRates?.retention!=null){Object.keys(sectorFiscalRates).forEach(k=>sectorFiscalRates[k]=Number(data.fiscalRates.retention))}syncGDP();return r};wrapped.__gdpWrapped=true;window.restoreGame=wrapped;try{restoreGame=wrapped}catch(e){}}
+ // Exponer tasas para el motor económico y los selectores sectoriales.
+ window.sectorFiscalRates=sectorFiscalRates;syncGDP();
+})();
+</script>
 </body>
 </html>
