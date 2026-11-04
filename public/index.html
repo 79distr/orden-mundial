@@ -796,14 +796,14 @@ function restoreGame(data){
 }
 function loadGame(){try{const raw=localStorage.getItem(SAVE_KEY);if(!raw){notify('No hay ninguna partida guardada en este navegador.');return}restoreGame(JSON.parse(raw))}catch(e){notify('No se pudo cargar la partida: '+e.message)}}
 function exportSave(){try{const blob=new Blob([JSON.stringify(collectGame(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='orden-mundial-partida-'+year+'-'+String(month).padStart(2,'0')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('Copia de seguridad descargada.')}catch(e){notify('No se pudo exportar la partida.')}}
-document.getElementById('saveGame').addEventListener('click',()=>window.saveGame(false));
-document.getElementById('loadGame').addEventListener('click',()=>{if(confirm('¿Cargar la última partida guardada? Se reemplazará el estado actual.'))window.loadGame()});
+document.getElementById('saveGame').addEventListener('click',()=>saveGame(false));
+document.getElementById('loadGame').addEventListener('click',()=>{if(confirm('¿Cargar la última partida guardada? Se reemplazará el estado actual.'))loadGame()});
 document.getElementById('exportSave').addEventListener('click',exportSave);
 document.getElementById('importSave').addEventListener('click',()=>document.getElementById('importFile').click());
-document.getElementById('importFile').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;if(!confirm('¿Importar esta copia? Se reemplazará el estado actual de la partida.'))return;const r=new FileReader();r.onerror=()=>notify('No se pudo leer el archivo.');r.onload=()=>{try{const data=JSON.parse(r.result);restoreGame(data);window.saveGame(true);notify('Partida importada correctamente.')}catch(err){notify('No se pudo importar: '+err.message)}};r.readAsText(f)});
-setInterval(()=>window.saveGame(true),20000);
-window.addEventListener('beforeunload',()=>window.saveGame(true));
-const _turnForAutosave=document.getElementById('nextTurn').onclick;document.getElementById('nextTurn').onclick=()=>{_turnForAutosave();window.saveGame(true)};
+document.getElementById('importFile').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;if(!confirm('¿Importar esta copia? Se reemplazará el estado actual de la partida.'))return;const r=new FileReader();r.onerror=()=>notify('No se pudo leer el archivo.');r.onload=()=>{try{const data=JSON.parse(r.result);restoreGame(data);saveGame(true);notify('Partida importada correctamente.')}catch(err){notify('No se pudo importar: '+err.message)}};r.readAsText(f)});
+setInterval(()=>saveGame(true),20000);
+window.addEventListener('beforeunload',()=>saveGame(true));
+const _turnForAutosave=document.getElementById('nextTurn').onclick;document.getElementById('nextTurn').onclick=()=>{_turnForAutosave();saveGame(true)};
 </script>
 <script>
 /* ===== EXTENSIÓN v2: países, disputados, ciudades, IA, elecciones ===== */
@@ -2540,7 +2540,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
    S.version=body.updatedAt;S.lastUploaded=cmp;S.lastUploadAt=Date.now();
    setStatus('☁ Guardado · '+stamp());
    return true;
-  }catch(e){setStatus('⚠ Sin guardar en la nube');console.error('ORDEN MUNDIAL: error al guardar en la nube',e);return false}
+  }catch(e){setStatus('⚠ Sin guardar en la nube');return false}
   finally{S.busy=false}
  }
  async function autosave(){
@@ -2549,13 +2549,12 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   if(Date.now()-S.lastUploadAt<MIN_GAP){setStatus('☁ Cambios sin guardar');return}
   await upload(false);
  }
- setInterval(()=>{if(S.mode==='cloud')autosave()},30000);
 
  /* Con cuenta activa, Guardar/Cargar trabajan contra la nube. */
  window.saveGame=function(silent){
   if(S.mode!=='cloud')return localSave.apply(this,arguments);
   if(silent){autosave();return true}
-  upload(true).then(ok=>{if(ok)notify('Partida guardada en tu cuenta.');else notify('No se pudo guardar en la nube. Revisá tu conexión y el estado de la cuenta; tus cambios siguen abiertos en pantalla.')});
+  upload(true).then(ok=>{if(ok)notify('Partida guardada en tu cuenta.')});
   return true;
  };
  window.loadGame=function(){
@@ -3030,7 +3029,7 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  window.selectSection=function(section){if(section==='Mercado de materias primas'||section==='Comercio global')section='Mercado mundial';const result=oldSelect?.apply(this,[section,...Array.prototype.slice.call(arguments,1)]);if(section==='Mercado mundial')renderSection();return result;};
  const next=$('nextTurn');if(next){const prior=next.onclick;next.onclick=function(...args){const result=prior?.apply(this,args);monthly();persist();return result;};}
  const oldCollect=window.collectGame;if(typeof oldCollect==='function')window.collectGame=function(){const d=oldCollect.apply(this,arguments);d.omCapitalMarketsV1=JSON.parse(JSON.stringify(S));return d;};
- const oldRestore=window.restoreGame;if(typeof oldRestore==='function')window.restoreGame=function(d){oldRestore.apply(this,arguments);if(d?.omCapitalMarketsV1){Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,JSON.parse(JSON.stringify(d.omCapitalMarketsV1)));S.commodityOrders=S.commodityOrders||[];S.commodityHistory=S.commodityHistory||[];S.commodityStocks=S.commodityStocks||{};}};
+ const oldRestore=window.restoreGame;if(typeof oldRestore==='function')window.restoreGame=function(d){oldRestore.apply(this,arguments);if(d?.omCapitalMarketsV1){Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,JSON.parse(JSON.stringify(d.omCapitalMarketsV1)));}S.commodityOrders=Array.isArray(S.commodityOrders)?S.commodityOrders:[];S.commodityHistory=Array.isArray(S.commodityHistory)?S.commodityHistory:[];S.commodityStocks=S.commodityStocks&&typeof S.commodityStocks==='object'?S.commodityStocks:{};S.internationalCommodityPrices=S.internationalCommodityPrices&&typeof S.internationalCommodityPrices==='object'?S.internationalCommodityPrices:{};Object.keys(resources).forEach(k=>{const v=Number(S.internationalCommodityPrices[k]);S.internationalCommodityPrices[k]=Number.isFinite(v)&&v>0?v:100;});};
  window.omCommodityMarket={state:()=>JSON.parse(JSON.stringify({orders:S.commodityOrders,stocks:S.commodityStocks,history:S.commodityHistory,internationalPrices:S.internationalCommodityPrices})),monthly,render:renderPanel,unitPrice:internationalUnitPriceUSD,totalPrice:(resource,qty)=>internationalUnitPriceUSD(resource)*num(qty)};
 })();
 
@@ -3377,18 +3376,21 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  const parseGDP=value=>{const t=String(value||'').replace(/\$/g,'').trim().toLowerCase();const n=Number((t.match(/[0-9.,]+/)||['640'])[0].replace(/\./g,'').replace(',','.'));return Number.isFinite(n)?(t.includes('billón')?n*1000:n):640};
  const fmtGDP=value=>value>=1000?'$'+(value/1000).toFixed(2).replace('.',',')+' billones':'$'+value.toFixed(1).replace('.',',')+' mil M';
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+ // La tasa sectorial puede no existir en partidas antiguas: inicializarla sin romper la carga.
+ const sectorFiscalRates=(window.sectorFiscalRates&&typeof window.sectorFiscalRates==='object'&&!Array.isArray(window.sectorFiscalRates))?window.sectorFiscalRates:{general:Number(fiscalRates?.retention)||0};
+ window.sectorFiscalRates=sectorFiscalRates;
  const gdpByCountry={};
  Object.keys(typeof countries!=='undefined'?countries:{}).forEach(n=>{gdpByCountry[n]={value:parseGDP(countries[n].gdp),history:[]}});
  function stateFor(country){if(!gdpByCountry[country])gdpByCountry[country]={value:parseGDP(countries[country]?.gdp),history:[]};return gdpByCountry[country]}
  function syncGDP(){const c=countries[currentCountry],st=stateFor(currentCountry);if(c)c.gdp=fmtGDP(st.value);if($('gdp'))$('gdp').textContent=fmtGDP(st.value);if($('countryGDP'))$('countryGDP').textContent=fmtGDP(st.value);}
- function updateGDP(){const st=stateFor(currentCountry),prev=st.value;const pi=(typeof publicIndicators!=='undefined'?publicIndicators:{});const infra=Number(pi.infraestructura??50),tech=Number(pi.tecnologia??50),edu=Number(pi.educacion??50);const ret=Object.values(window.sectorFiscalRates||{general:fiscalRates.retention||15}).reduce((a,b)=>a+Number(b||0),0)/Math.max(1,Object.keys(window.sectorFiscalRates||{general:fiscalRates.retention||15}).length);const warCount=(typeof wars!=='undefined'?wars:[]).filter(w=>w.status==='active').length;const activeProjects=typeof omProductive!=='undefined'&&Array.isArray(omProductive.projects)?omProductive.projects.filter(p=>p.country===currentCountry&&p.status!=='Cancelado').length:0;const fiscalDrag=Math.max(-.18,Math.min(.12,(Number(fiscalRates.consumption||0)-18)*-.004+(Number(fiscalRates.tariff||0)-12)*-.002));const growth=cl(.12+(infra-50)*.003+(tech-50)*.004+(edu-50)*.001+(Number(stability||50)-50)*.002-(ret-15)*.003+Math.min(.12,activeProjects*.025)-Math.min(.35,warCount*.10)+fiscalDrag+(Math.random()-.5)*.12,-.8,.8);st.value=Math.max(1,prev*(1+growth/100));st.history.push({turn:Number(turn)||0,year:Number(year)||2026,month:Number(month)||1,value:st.value,growth});if(st.history.length>180)st.history.shift();syncGDP();const trend=$('gdpTrend');if(trend)trend.textContent=(growth>=0?'▲ ':'▼ ')+Math.abs(growth).toFixed(2)+'% este mes';if(Number(turn)%3===0&&typeof addNews==='function')addNews('Producto interno bruto',`El PIB estimado de ${currentCountry} ${growth>=0?'creció':'se contrajo'} ${Math.abs(growth).toFixed(2)}% durante el mes y se ubica en ${fmtGDP(st.value)}. Variación calculada por actividad, infraestructura, tecnología, educación, estabilidad, carga tributaria y conflictos.`);}
+ function updateGDP(){const st=stateFor(currentCountry),prev=st.value;const pi=(typeof publicIndicators!=='undefined'?publicIndicators:{});const infra=Number(pi.infraestructura??50),tech=Number(pi.tecnologia??50),edu=Number(pi.educacion??50);const ret=Object.values(window.sectorFiscalRates||{general:fiscalRates.retention||15}).reduce((a,b)=>a+Number(b||0),0)/Math.max(1,Object.keys(window.sectorFiscalRates||{general:fiscalRates.retention||15}).length);const warCount=(typeof wars!=='undefined'?wars:[]).filter(w=>w.status==='active').length;const activeProjects=typeof omProductive!=='undefined'&&Array.isArray(omProductive.projects)?omProductive.projects.filter(p=>p.country===currentCountry&&p.status!=='Cancelado').length:0;const fiscalDrag=Math.max(-.18,Math.min(.12,(Number(fiscalRates.consumption||0)-18)*-.004+(Number(fiscalRates.tariff||0)-12)*-.002));const growth=clamp(.12+(infra-50)*.003+(tech-50)*.004+(edu-50)*.001+(Number(stability||50)-50)*.002-(ret-15)*.003+Math.min(.12,activeProjects*.025)-Math.min(.35,warCount*.10)+fiscalDrag+(Math.random()-.5)*.12,-.8,.8);st.value=Math.max(1,prev*(1+growth/100));st.history.push({turn:Number(turn)||0,year:Number(year)||2026,month:Number(month)||1,value:st.value,growth});if(st.history.length>180)st.history.shift();syncGDP();const trend=$('gdpTrend');if(trend)trend.textContent=(growth>=0?'▲ ':'▼ ')+Math.abs(growth).toFixed(2)+'% este mes';if(Number(turn)%3===0&&typeof addNews==='function')addNews('Producto interno bruto',`El PIB estimado de ${currentCountry} ${growth>=0?'creció':'se contrajo'} ${Math.abs(growth).toFixed(2)}% durante el mes y se ubica en ${fmtGDP(st.value)}. Variación calculada por actividad, infraestructura, tecnología, educación, estabilidad, carga tributaria y conflictos.`);}
  // El país seleccionado conserva su propio PIB. Al cambiar de país, se muestra su valor correspondiente.
  const oldSelectCountry=window.selectCountry;if(typeof oldSelectCountry==='function'&&!oldSelectCountry.__gdpWrapped){const wrapped=function(name){const r=oldSelectCountry.apply(this,arguments);syncGDP();return r};wrapped.__gdpWrapped=true;window.selectCountry=wrapped;try{selectCountry=wrapped}catch(e){}}
  // Aplicar una vez por mes después de todos los procesadores de turno existentes.
  const next=$('nextTurn');if(next&&!next.dataset.gdpWrapped){const old=next.onclick;next.onclick=function(ev){if(typeof old==='function')old.call(this,ev);updateGDP();if(typeof saveGame==='function')saveGame(true)};next.dataset.gdpWrapped='1';}
  // Persistir PIB e impuestos sectoriales sin alterar el formato de los demás subsistemas.
- const oldCollect=window.collectGame;if(typeof oldCollect==='function'&&!oldCollect.__gdpWrapped){const wrapped=function(){const d=oldCollect.apply(this,arguments);d.omGDPFiscal={gdpByCountry,sectorFiscalRates:window.sectorFiscalRates||sectorFiscalRates};return d};wrapped.__gdpWrapped=true;window.collectGame=wrapped;try{collectGame=wrapped}catch(e){}}
- const oldRestore=window.restoreGame;if(typeof oldRestore==='function'&&!oldRestore.__gdpWrapped){const wrapped=function(data){const r=oldRestore.apply(this,arguments);const saved=data?.omGDPFiscal;if(saved?.gdpByCountry){Object.keys(gdpByCountry).forEach(k=>delete gdpByCountry[k]);Object.assign(gdpByCountry,saved.gdpByCountry)}if(saved?.sectorFiscalRates){Object.keys(sectorFiscalRates).forEach(k=>delete sectorFiscalRates[k]);Object.assign(sectorFiscalRates,saved.sectorFiscalRates)}else if(data?.fiscalRates?.retention!=null){Object.keys(sectorFiscalRates).forEach(k=>sectorFiscalRates[k]=Number(data.fiscalRates.retention))}syncGDP();return r};wrapped.__gdpWrapped=true;window.restoreGame=wrapped;try{restoreGame=wrapped}catch(e){}}
+ const oldCollect=window.collectGame;if(typeof oldCollect==='function'&&!oldCollect.__gdpWrapped){const wrapped=function(){const d=oldCollect.apply(this,arguments);d.omGDPFiscal={gdpByCountry,sectorFiscalRates:JSON.parse(JSON.stringify(sectorFiscalRates))};return d};wrapped.__gdpWrapped=true;window.collectGame=wrapped;try{collectGame=wrapped}catch(e){}}
+ const oldRestore=window.restoreGame;if(typeof oldRestore==='function'&&!oldRestore.__gdpWrapped){const wrapped=function(data){const r=oldRestore.apply(this,arguments);const saved=data?.omGDPFiscal;if(saved?.gdpByCountry){Object.keys(gdpByCountry).forEach(k=>delete gdpByCountry[k]);Object.assign(gdpByCountry,saved.gdpByCountry)}const savedRates=saved?.sectorFiscalRates;if(savedRates&&typeof savedRates==='object'&&!Array.isArray(savedRates)){Object.keys(sectorFiscalRates).forEach(k=>delete sectorFiscalRates[k]);Object.assign(sectorFiscalRates,savedRates)}else if(data?.fiscalRates?.retention!=null){sectorFiscalRates.general=Number(data.fiscalRates.retention)}window.sectorFiscalRates=sectorFiscalRates;syncGDP();return r};wrapped.__gdpWrapped=true;window.restoreGame=wrapped;try{restoreGame=wrapped}catch(e){}}
  // Exponer tasas para el motor económico y los selectores sectoriales.
  window.sectorFiscalRates=sectorFiscalRates;syncGDP();
 })();
