@@ -154,7 +154,7 @@ input:focus,select:focus{outline:2px solid #59cbb8;outline-offset:1px}
 <div class="shell">
 <header class="topbar">
  <div class="brand"><div class="emblem">◎</div><div><h1>ORDEN MUNDIAL</h1><p>EL MUNDO SIGUE GIRANDO</p></div></div>
- <div class="top-actions"><button class="mobile-menu" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ Menú</button><span class="date-chip" id="date">MARZO · 2026</span><span class="status-chip">● SIMULACIÓN ACTIVA</span><button id="saveGame">💾 Guardar</button><button id="loadGame">↩ Cargar</button><button id="exportSave">⬇ Copia</button><button id="omExportFull" type="button" title="Descargar una copia completa de la partida">⬇ Exportar partida</button><button id="importSave">⬆ Importar</button><input type="file" id="importFile" accept=".json,application/json" style="display:none"><button id="omModeSwitch" type="button" title="Cambiar modalidad">Cambiar modo</button><span class="date-chip" id="omUserChip" style="display:none"></span><span class="save-status" id="saveStatus">Sin guardar</span><button id="omBackup" style="display:none" title="Restaurar la versión anterior de tu partida">⟲ Respaldo</button><button id="omLogout" style="display:none">Salir</button><button class="primary" id="nextTurn">▶ Próximo mes</button></div>
+ <div class="top-actions"><button class="mobile-menu" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ Menú</button><span class="date-chip" id="date">MARZO · 2026</span><span class="status-chip">● SIMULACIÓN ACTIVA</span><button id="saveGame">💾 Guardar</button><button id="loadGame">↩ Cargar</button><button id="exportSave">⬇ Copia</button><button id="importSave">⬆ Importar</button><input type="file" id="importFile" accept=".json,application/json" style="display:none"><button id="omModeSwitch" type="button" title="Cambiar modalidad">Cambiar modo</button><span class="date-chip" id="omUserChip" style="display:none"></span><span class="save-status" id="saveStatus">Sin guardar</span><button id="omBackup" style="display:none" title="Restaurar la versión anterior de tu partida">⟲ Respaldo</button><button id="omLogout" style="display:none">Salir</button><button class="primary" id="nextTurn">▶ Próximo mes</button></div>
 </header>
 <div class="layout">
 <aside class="panel sidebar">
@@ -796,14 +796,14 @@ function restoreGame(data){
 }
 function loadGame(){try{const raw=localStorage.getItem(SAVE_KEY);if(!raw){notify('No hay ninguna partida guardada en este navegador.');return}restoreGame(JSON.parse(raw))}catch(e){notify('No se pudo cargar la partida: '+e.message)}}
 function exportSave(){try{const blob=new Blob([JSON.stringify(collectGame(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='orden-mundial-partida-'+year+'-'+String(month).padStart(2,'0')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('Copia de seguridad descargada.')}catch(e){notify('No se pudo exportar la partida.')}}
-document.getElementById('saveGame').addEventListener('click',()=>window.saveGame(false));
-document.getElementById('loadGame').addEventListener('click',()=>{if(confirm('¿Cargar la última partida guardada? Se reemplazará el estado actual.'))window.loadGame()});
+document.getElementById('saveGame').addEventListener('click',()=>saveGame(false));
+document.getElementById('loadGame').addEventListener('click',()=>{if(confirm('¿Cargar la última partida guardada? Se reemplazará el estado actual.'))loadGame()});
 document.getElementById('exportSave').addEventListener('click',exportSave);
 document.getElementById('importSave').addEventListener('click',()=>document.getElementById('importFile').click());
-document.getElementById('importFile').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;if(!confirm('¿Importar esta copia? Se reemplazará el estado actual de la partida.'))return;const r=new FileReader();r.onerror=()=>notify('No se pudo leer el archivo.');r.onload=()=>{try{const data=JSON.parse(r.result);restoreGame(data);window.saveGame(true);notify('Partida importada correctamente.')}catch(err){notify('No se pudo importar: '+err.message)}};r.readAsText(f)});
-setInterval(()=>window.saveGame(true),20000);
-window.addEventListener('beforeunload',()=>window.saveGame(true));
-const _turnForAutosave=document.getElementById('nextTurn').onclick;document.getElementById('nextTurn').onclick=()=>{_turnForAutosave();window.saveGame(true)};
+document.getElementById('importFile').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;if(!confirm('¿Importar esta copia? Se reemplazará el estado actual de la partida.'))return;const r=new FileReader();r.onerror=()=>notify('No se pudo leer el archivo.');r.onload=()=>{try{const data=JSON.parse(r.result);restoreGame(data);saveGame(true);notify('Partida importada correctamente.')}catch(err){notify('No se pudo importar: '+err.message)}};r.readAsText(f)});
+setInterval(()=>saveGame(true),20000);
+window.addEventListener('beforeunload',()=>saveGame(true));
+const _turnForAutosave=document.getElementById('nextTurn').onclick;document.getElementById('nextTurn').onclick=()=>{_turnForAutosave();saveGame(true)};
 </script>
 <script>
 /* ===== EXTENSIÓN v2: países, disputados, ciudades, IA, elecciones ===== */
@@ -2540,7 +2540,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
    S.version=body.updatedAt;S.lastUploaded=cmp;S.lastUploadAt=Date.now();
    setStatus('☁ Guardado · '+stamp());
    return true;
-  }catch(e){setStatus('⚠ Sin guardar en la nube');console.error('ORDEN MUNDIAL: error al guardar en la nube',e);return false}
+  }catch(e){setStatus('⚠ Sin guardar en la nube');return false}
   finally{S.busy=false}
  }
  async function autosave(){
@@ -2549,33 +2549,12 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   if(Date.now()-S.lastUploadAt<MIN_GAP){setStatus('☁ Cambios sin guardar');return}
   await upload(false);
  }
- setInterval(()=>{if(S.mode==='cloud')autosave()},30000);
 
  /* Con cuenta activa, Guardar/Cargar trabajan contra la nube. */
- let turnSaveTimer=null, turnSaveInProgress=false;
- async function uploadAfterTurn(){
-  if(S.mode!=='cloud'||!S.loaded)return false;
-  // Si hay una subida previa en curso, esperamos a que termine para no perder el turno.
-  for(let i=0;i<60&&S.busy;i++) await new Promise(resolve=>setTimeout(resolve,250));
-  if(S.busy){setStatus('⚠ Guardado pendiente: el servidor sigue ocupado');return false;}
-  for(let attempt=0;attempt<3;attempt++){
-   const ok=await upload(true); // fuerza escritura: no aplica el intervalo de 90 segundos
-   if(ok)return true;
-   if(S.mode!=='cloud'||!S.loaded)return false;
-   if(attempt<2)await new Promise(resolve=>setTimeout(resolve,1200*(attempt+1)));
-  }
-  setStatus('⚠ No se pudo guardar el turno en la nube');
-  return false;
- }
- function scheduleTurnCloudSave(delay=650){
-  clearTimeout(turnSaveTimer);
-  turnSaveTimer=setTimeout(()=>{if(!turnSaveInProgress){turnSaveInProgress=true;uploadAfterTurn().finally(()=>{turnSaveInProgress=false})}},delay);
- }
- window.omSaveTurnToCloud=()=>scheduleTurnCloudSave(0);
  window.saveGame=function(silent){
   if(S.mode!=='cloud')return localSave.apply(this,arguments);
-  if(silent){scheduleTurnCloudSave();return true}
-  upload(true).then(ok=>{if(ok)notify('Partida guardada en tu cuenta.');else notify('No se pudo guardar en la nube. Revisá tu conexión y el estado de la cuenta; tus cambios siguen abiertos en pantalla.')});
+  if(silent){autosave();return true}
+  upload(true).then(ok=>{if(ok)notify('Partida guardada en tu cuenta.')});
   return true;
  };
  window.loadGame=function(){
@@ -2675,7 +2654,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   const fresh=M.room?.turnReady||{},allFresh=roomPlayers().length===2&&roomPlayers().every(([u])=>fresh[u]);
   if(!allFresh){updateHud();notify('Confirmaste el próximo mes. El avance queda bloqueado hasta que confirme el otro jugador.');return}
   if(M.me!==M.room?.owner){notify('Ambos están listos. El creador debe pulsar Próximo mes para ejecutar el avance.');return}
-  M.advancing=true;try{if(oldHandler)oldHandler.apply(ctx,args);const data=collectGame();const b=await call('rooms/'+M.code+'/advance',{method:'POST',body:JSON.stringify({data,baseVersion:M.worldVersion})});M.room=b.room;M.worldVersion=b.worldVersion;rememberLocal();updateHud();if(typeof window.omSaveTurnToCloud==='function')window.omSaveTurnToCloud();notify('Mes avanzado y compartido con ambos jugadores.')}catch(e){notify(e.message);await pollWorld()}finally{M.advancing=false}
+  M.advancing=true;try{if(oldHandler)oldHandler.apply(ctx,args);const data=collectGame();const b=await call('rooms/'+M.code+'/advance',{method:'POST',body:JSON.stringify({data,baseVersion:M.worldVersion})});M.room=b.room;M.worldVersion=b.worldVersion;rememberLocal();updateHud();notify('Mes avanzado y compartido con ambos jugadores.')}catch(e){notify(e.message);await pollWorld()}finally{M.advancing=false}
  }
  async function leaveRoom(){if(!confirm('¿Querés salir de esta sala?'))return;try{await call('rooms/'+M.code+'/leave',{method:'POST',body:'{}'})}catch{}clearRoom()}
  function clearRoom(){M.code='';M.room=null;M.me=null;M.inGame=false;M.worldVersion=0;localStorage.removeItem('om_room_code');if(M.timer)clearInterval(M.timer);M.timer=null;$('omMultiHud')?.remove();panel()}
@@ -3468,151 +3447,5 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  const oldRestore=window.restoreGame;if(typeof oldRestore==='function')window.restoreGame=function(d){const r=oldRestore.apply(this,arguments);if(d?.omUNConflictV1){Object.keys(UN).forEach(k=>delete UN[k]);Object.assign(UN,JSON.parse(JSON.stringify(d.omUNConflictV1)));}if(d?.omEmploymentV2){Object.keys(LAB).forEach(k=>delete LAB[k]);Object.assign(LAB,JSON.parse(JSON.stringify(d.omEmploymentV2)));}return r};
 })();
 </script>
-
-<script>
-/* ORDEN MUNDIAL · SOLICITUDES INTERNACIONALES DE ADOPCIÓN MONETARIA Y SOBERANÍA */
-(()=>{
- 'use strict';
- const fx=window.omFX;
- if(!fx||window.omCurrencyAdoptionSovereigntyV1)return;
- window.omCurrencyAdoptionSovereigntyV1=true;
- const $=id=>document.getElementById(id);
- const num=v=>Number(v)||0;
- const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const player=()=>{try{return currentCountry||'Argentina'}catch(e){return 'Argentina'}};
- const turnNo=()=>{try{return Number(turn)||0}catch(e){return 0}};
- const nations=()=>{try{return Object.keys(countries||{}).filter(Boolean)}catch(e){return Object.keys(fx.nationalCurrencyByCountry||{})}};
- const save=()=>{try{if(typeof saveGame==='function')saveGame(true)}catch(e){}}
- const log=(title,text)=>{fx.logs=fx.logs||[];fx.logs.unshift({turn:turnNo(),title,text});fx.logs=fx.logs.slice(0,100);if(typeof addNews==='function')addNews(title,text)};
- fx.adoptionRequests=Array.isArray(fx.adoptionRequests)?fx.adoptionRequests:[];
- fx.adoptionHistory=Array.isArray(fx.adoptionHistory)?fx.adoptionHistory:[];
- fx.monetaryInfluence=fx.monetaryInfluence||{};
- fx.lastAdoptionRequestTurn=Number.isFinite(Number(fx.lastAdoptionRequestTurn))?Number(fx.lastAdoptionRequestTurn):-1;
- function issuingCurrency(){const c=player();return fx.countryCurrency?.[c]||fx.nationalCurrencyByCountry?.[c]||'ARS'}
- function requestReason(country,issuer,code){
-  const rel=num((window.countries||{})[country]?.relation)||50;
-  const trade=(fx.tradeDeals||[]).filter(d=>[d.a,d.b,d.country,d.partner].includes(country)||[d.a,d.b,d.country,d.partner].includes(issuer)).length;
-  return trade>0?'El crecimiento del comercio bilateral impulsa la propuesta de utilizar una moneda común para reducir costos de conversión.':rel>=65?'La relación diplomática y comercial favorable motiva al gobierno a solicitar un anclaje monetario con '+issuer+'.':'El gobierno busca reducir la volatilidad cambiaria y facilitar pagos comerciales con '+issuer+'.';
- }
- function maybeCreateRequest(){
-  const issuer=player(),code=issuingCurrency();
-  if(turnNo()===fx.lastAdoptionRequestTurn)return;
-  if(turnNo()<1||turnNo()%3!==0)return;
-  if(fx.adoptionRequests.some(r=>r.status==='Pendiente'&&r.issuer===issuer))return;
-  const currency=fx.currencies?.[code];if(!currency)return;
-  const change=num(currency.change);
-  const candidates=nations().filter(c=>c!==issuer&&(fx.countryCurrency?.[c]||fx.nationalCurrencyByCountry?.[c])!==code&&!fx.adoptionHistory.some(h=>h.country===c&&h.status==='Aprobada'));
-  if(!candidates.length)return;
-  const relationScore=c=>num((window.countries||{})[c]?.relation)||50;
-  const weighted=candidates.map(c=>({c,score:Math.max(5,relationScore(c)-Math.max(0,-change)*2+Math.random()*35)})).sort((a,b)=>b.score-a.score);
-  // La adopción es una decisión excepcional: se generan solicitudes ocasionales, no una avalancha mensual.
-  const chance=Math.max(.04,Math.min(.32,.13+change/250+(relationScore(weighted[0].c)-50)/400));
-  if(Math.random()>chance)return;
-  const target=weighted[0].c;
-  const old=fx.countryCurrency?.[target]||fx.nationalCurrencyByCountry?.[target]||'moneda nacional';
-  const req={id:'MON'+turnNo()+'_'+Math.random().toString(36).slice(2,8),country:target,issuer,currency:code,currencyName:currency.name||code,oldCurrency:old,turn:turnNo(),status:'Pendiente',reason:requestReason(target,issuer,code),tradeScore:fx.tradeDeals?.filter(d=>JSON.stringify(d).includes(target)&&JSON.stringify(d).includes(issuer)).length||0};
-  fx.adoptionRequests.unshift(req);fx.adoptionRequests=fx.adoptionRequests.slice(0,50);fx.lastAdoptionRequestTurn=turnNo();
-  log('Solicitud de adopción monetaria',target+' solicita autorización para adoptar '+code+' ('+(currency.name||code)+') como moneda oficial, emitida por '+issuer+'. La decisión corresponde al gobierno de '+issuer+'.');
-  save();
- }
- function applyAdoption(req){
-  const target=req.country,issuer=req.issuer,code=req.currency;
-  fx.countryCurrency=fx.countryCurrency||{};fx.regimes=fx.regimes||{};fx.regimeLog=fx.regimeLog||[];
-  fx.countryCurrency[target]=code;
-  fx.regimes[target]={type:'foreign-full',code,issuer,since:turnNo(),monetarySovereignty:false,monetaryInfluence:100,fullAdoption:true};
-  fx.monetaryInfluence[target]={issuer,level:100,independentPolicy:false,independentIssuance:false,adoptedTurn:turnNo()};
-  const W=window.omBancoCentralState; if(W){W.economies=W.economies||{};const own=W.economies[target]||(W.economies[target]={inflation:4.2,rate:8,unemployment:7.5,history:[]});const source=W.economies[issuer]||(W.economies[issuer]={inflation:4.2,rate:8,unemployment:7.5,history:[]});own.rate=num(source.rate)||num(own.rate);own.inflation=Math.max(.1,.75*(num(source.inflation)||4.2)+.25*(num(own.inflation)||4.2));own.monetaryIssuer=issuer;own.monetarySovereignty=false;}
-  req.status='Aprobada';req.decisionTurn=turnNo();req.decisionBy=issuer;
-  const entry={country:target,issuer,currency:code,turn:turnNo(),status:'Aprobada',influence:100};fx.adoptionHistory.unshift(entry);
-  const text=issuer+' autorizó a '+target+' a adoptar '+code+' como moneda oficial. '+target+' renuncia a emitir moneda propia y pierde autonomía para fijar su tasa de interés: su política monetaria queda vinculada al emisor. '+issuer+' obtiene influencia monetaria plena (100%) sobre '+target+'.';
-  fx.regimeLog.unshift({country:target,turn:turnNo(),title:'Adopción monetaria extranjera aprobada',text});
-  log('Adopción monetaria aprobada',text);
-  // Revalorización de confianza comercial, pero no se regalan reservas ni PIB.
-  const rel=(window.countries||{})[target];if(rel)rel.relation=Math.min(100,num(rel.relation||50)+4);
- }
- window.omApproveCurrencyRequest=function(id,approve){
-  const req=fx.adoptionRequests.find(r=>String(r.id)===String(id)&&r.status==='Pendiente');if(!req)return;
-  if(req.issuer!==player())return window.window.notify?.('Esta solicitud está dirigida al país emisor '+req.issuer+'.');
-  if(approve)applyAdoption(req);else{req.status='Rechazada';req.decisionTurn=turnNo();req.decisionBy=player();fx.adoptionHistory.unshift({country:req.country,issuer:req.issuer,currency:req.currency,turn:turnNo(),status:'Rechazada'});log('Solicitud monetaria rechazada',player()+' rechazó la solicitud de '+req.country+' para adoptar '+req.currency+'.');}
-  save();renderPanel();
- };
- function renderPanel(){
-  const root=$('omMonetaryRegime');if(!root)return;
-  root.querySelector('#omCurrencyAdoptionPanel')?.remove();
-  const issuer=player(),code=issuingCurrency(),cur=fx.currencies?.[code]||{};
-  const pending=fx.adoptionRequests.filter(r=>r.issuer===issuer&&r.status==='Pendiente');
-  const adopted=Object.entries(fx.monetaryInfluence).filter(([c,v])=>v?.issuer===issuer);
-  const cards=pending.map(r=>`<article class="news" style="margin:10px 0;border:1px solid var(--line,#34445a);padding:12px;border-radius:12px"><b>${esc(r.country)} solicita adoptar ${esc(r.currency)} · ${esc(r.currencyName)}</b><p>${esc(r.reason)}</p><small>Moneda actual: ${esc(r.oldCurrency)} · Solicitud del turno ${r.turn}</small><p><button class="primary" onclick="omApproveCurrencyRequest('${esc(r.id)}',true)">Aprobar adopción</button> <button onclick="omApproveCurrencyRequest('${esc(r.id)}',false)">Rechazar</button></p></article>`).join('')||'<p class="muted">No hay solicitudes pendientes de adopción de tu moneda.</p>';
-  const adoptedHTML=adopted.map(([c,v])=>`<div class="om-row"><b>${esc(c)}</b><span>${esc(code)} · Influencia del emisor: 100%</span><small>Sin emisión monetaria propia ni tasa de interés independiente.</small></div>`).join('')||'<p class="muted">Todavía no hay países que hayan adoptado tu moneda.</p>';
-  const history=fx.adoptionHistory.filter(h=>h.issuer===issuer).slice(0,8).map(h=>`<div class="om-row"><b>${esc(h.country)} · ${esc(h.status)}</b><span>${esc(h.currency)} · Turno ${h.turn}</span></div>`).join('');
-  root.insertAdjacentHTML('beforeend',`<section id="omCurrencyAdoptionPanel" class="news" style="margin-top:18px"><div class="om-hero"><div><span class="om-kicker">DIPLOMACIA MONETARIA · SOBERANÍA</span><h2>Solicitudes para adoptar ${esc(code)}</h2><p>Moneda emitida por ${esc(issuer)} (${esc(cur.name||code)}). Otros gobiernos pueden solicitar autorización para utilizarla como moneda oficial. La adopción requiere tu aprobación.</p></div><div class="om-hero-badge">Influencia potencial: 100%</div></div><h3>Solicitudes pendientes</h3>${cards}<h3>Países que adoptaron tu moneda</h3>${adoptedHTML}<h3>Historial de decisiones</h3>${history||'<p class="muted">Sin decisiones registradas.</p>'}<div class="news" style="margin-top:12px"><b>Consecuencia de aprobar</b><p>La adopción implica sustitución monetaria completa: el país deja de emitir su moneda, pierde la tasa de interés independiente y queda vinculado a las decisiones monetarias del emisor. La influencia monetaria del emisor se fija en el 100%; la tasa de referencia del país adoptante sigue la del emisor y su inflación recibe la transmisión de esa política.</p></div></section>`);
- }
- // La elección monetaria del país jugador se conserva; las adopciones de terceros requieren aprobación del emisor.
- function monthly(){
-  maybeCreateRequest();
-  const W=window.omBancoCentralState;
-  if(W){Object.entries(fx.monetaryInfluence||{}).forEach(([target,link])=>{if(!link||link.level!==100||!link.issuer)return;W.economies=W.economies||{};const local=W.economies[target]||(W.economies[target]={inflation:4.2,rate:8,unemployment:7.5,history:[]});const issuer=W.economies[link.issuer]||(W.economies[link.issuer]={inflation:4.2,rate:8,unemployment:7.5,history:[]});local.rate=num(issuer.rate);local.inflation=Math.max(.1,.8*(num(issuer.inflation)||4.2)+.2*(num(local.inflation)||4.2));local.monetaryIssuer=link.issuer;local.monetarySovereignty=false;});}
-  save();
- }
- const next=$('nextTurn');if(next)next.addEventListener('click',()=>setTimeout(monthly,80));
- const oldSelect=window.selectSection;if(typeof oldSelect==='function'&&!oldSelect.__omAdoptionPanel){const wrap=function(section){const r=oldSelect.apply(this,arguments);if(section==='Divisas')setTimeout(renderPanel,60);return r};wrap.__omAdoptionPanel=true;window.selectSection=wrap;}
- document.addEventListener('click',e=>{const b=e.target.closest('#nav button');if(b?.dataset.section==='Divisas')setTimeout(renderPanel,80)});
- setTimeout(renderPanel,800);
-})();
-</script>
-
-
-<script id="om-export-partida-fix">
-(function(){
- 'use strict';
- const btn=document.getElementById('omExportFull');
- if(!btn)return;
- btn.addEventListener('click',function(){
-  try{
-   let data=null;
-   if(typeof window.collectGame==='function') data=window.collectGame();
-   else if(typeof collectGame==='function') data=collectGame();
-   if(!data||typeof data!=='object') throw new Error('No se pudo reunir el estado de la partida.');
-   const json=JSON.stringify(data,null,2);
-   if(!json||json==='{}') throw new Error('La partida está vacía; no se generó el archivo.');
-   const blob=new Blob([json],{type:'application/json;charset=utf-8'});
-   const url=URL.createObjectURL(blob);
-   const a=document.createElement('a');
-   const dt=new Date();
-   const stamp=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0')+'_'+String(dt.getHours()).padStart(2,'0')+String(dt.getMinutes()).padStart(2,'0');
-   a.href=url;a.download='orden-mundial-partida-'+stamp+'.json';
-   a.style.display='none';document.body.appendChild(a);a.click();a.remove();
-   setTimeout(()=>URL.revokeObjectURL(url),30000);
-   const status=document.getElementById('saveStatus');if(status)status.textContent='Copia exportada · '+dt.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-   if(typeof window.notify==='function')window.notify('Copia completa de la partida descargada.');
-  }catch(err){console.error('Error exportando ORDEN MUNDIAL:',err);if(typeof window.notify==='function')window.notify('No se pudo exportar: '+(err.message||'error desconocido'));else alert('No se pudo exportar: '+(err.message||'error desconocido'));}
- });
-})();
-</script>
-
-<script id="om-autosave-after-every-turn-v1">
-(function(){
- 'use strict';
- const btn=document.getElementById('nextTurn');
- if(!btn||btn.dataset.omTurnAutosave==='1')return;
- btn.dataset.omTurnAutosave='1';
- let timer=null;
- btn.addEventListener('click',function(){
-  // Deja terminar los manejadores del turno y los procesos mensuales diferidos.
-  clearTimeout(timer);
-  timer=setTimeout(function(){
-   try{
-    if(typeof window.saveGame==='function')window.saveGame(true);
-    else if(typeof saveGame==='function')saveGame(true);
-   }catch(e){
-    console.error('ORDEN MUNDIAL: no se pudo iniciar el autoguardado del turno',e);
-    const status=document.getElementById('saveStatus');
-    if(status)status.textContent='⚠ Error al iniciar el autoguardado';
-   }
-  },1500);
- });
-})();
-</script>
-
 </body>
 </html>
