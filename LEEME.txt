@@ -1,0 +1,19 @@
+ORDEN MUNDIAL - CIERRES SEMESTRALES
+
+CONTENIDO
+- public/index.html: archivo completo con la función de cierres semestrales integrada.
+- parche/cierres-semestrales.patch: diff para revisar/aplicar sobre public/index.html.
+
+INSTALACION MANUAL RECOMENDADA
+1. En GitHub abre el repositorio 79distr/orden-mundial.
+2. Entra en public/index.html y guarda una copia local de respaldo.
+3. Reemplaza el contenido del archivo public/index.html por el contenido del index.html incluido aquí.
+4. Guarda/commitea el cambio en la rama main.
+5. Cloudflare Pages debería iniciar el despliegue automático. Espera a que termine antes de abrir el juego.
+
+IMPORTANTE
+- Este parche modifica únicamente el frontend public/index.html.
+- No modifica functions/api/[[route]].js, el binding OM_KV ni el namespace KV.
+- No borres datos del navegador, partidas ni el namespace KV.
+- La limpieza se ejecuta al completar cada sexto turno y conserva los balances actuales, identidades y datos operativos de las empresas; guarda resúmenes semestrales y limita los historiales detallados al semestre vigente.
+- Conserva el respaldo anterior por si necesitas volver atrás.
