@@ -1,0 +1,12 @@
+--- a/public/index.html
++++ b/public/index.html
+@@
+  const fmtGDP=value=>value>=1000?'$'+(value/1000).toFixed(2).replace('.',',')+' billones':'$'+value.toFixed(1).replace('.',',')+' mil M';
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
++ // Tasas sectoriales: usa las guardadas si existen; de lo contrario, conserva la retención general vigente.
++ const sectorFiscalRates=window.sectorFiscalRates&&typeof window.sectorFiscalRates==='object'?window.sectorFiscalRates:{general:fiscalRates.retention||15};
++ window.sectorFiscalRates=sectorFiscalRates;
+  const gdpByCountry={};
+@@
+- const growth=cl(.12+(infra-50)*.003+(tech-50)*.004+(edu-50)*.001+(Number(stability||50)-50)*.002-(ret-15)*.003+Math.min(.12,activeProjects*.025)-Math.min(.35,warCount*.10)+fiscalDrag+(Math.random()-.5)*.12,-.8,.8);
++ const growth=clamp(.12+(infra-50)*.003+(tech-50)*.004+(edu-50)*.001+(Number(stability||50)-50)*.002-(ret-15)*.003+Math.min(.12,activeProjects*.025)-Math.min(.35,warCount*.10)+fiscalDrag+(Math.random()-.5)*.12,-.8,.8);

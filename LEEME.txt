@@ -1,19 +1,22 @@
-ORDEN MUNDIAL - CIERRES SEMESTRALES
+CORRECCIÓN DE ERRORES DE ORDEN MUNDIAL
 
-CONTENIDO
-- public/index.html: archivo completo con la función de cierres semestrales integrada.
-- parche/cierres-semestrales.patch: diff para revisar/aplicar sobre public/index.html.
+Este parche corrige los dos errores que aparecen en la consola:
+1. sectorFiscalRates is not defined
+2. cl is not defined dentro de updateGDP
 
-INSTALACION MANUAL RECOMENDADA
-1. En GitHub abre el repositorio 79distr/orden-mundial.
-2. Entra en public/index.html y guarda una copia local de respaldo.
-3. Reemplaza el contenido del archivo public/index.html por el contenido del index.html incluido aquí.
-4. Guarda/commitea el cambio en la rama main.
-5. Cloudflare Pages debería iniciar el despliegue automático. Espera a que termine antes de abrir el juego.
+INSTALACIÓN
+1. En GitHub abre public/index.html.
+2. Haz una copia local de seguridad del archivo.
+3. Edita el archivo y localiza el bloque con id="om-gdp-and-fiscal-persistence-fix".
+4. Justo después de la línea:
+   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+   agrega las dos líneas de inicialización que aparecen en el parche.
+5. Dentro de updateGDP, cambia únicamente la llamada inicial cl( por clamp(.
+6. Guarda el commit en main.
+7. Espera el despliegue de Cloudflare y prueba con Ctrl+F5.
 
 IMPORTANTE
-- Este parche modifica únicamente el frontend public/index.html.
-- No modifica functions/api/[[route]].js, el binding OM_KV ni el namespace KV.
-- No borres datos del navegador, partidas ni el namespace KV.
-- La limpieza se ejecuta al completar cada sexto turno y conserva los balances actuales, identidades y datos operativos de las empresas; guarda resúmenes semestrales y limita los historiales detallados al semestre vigente.
-- Conserva el respaldo anterior por si necesitas volver atrás.
+- No modificar functions/api/[[route]].js.
+- No cambiar ni borrar OM_KV ni el namespace.
+- No borrar datos del navegador ni reiniciar la partida.
+- El parche no toca datos de partidas; corrige únicamente el código JavaScript.
