@@ -2093,19 +2093,13 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   return co;
  }
  function processAutonomousCompanies(nations){
-  ensure();
-  const MAX_NEW_PER_TURN=6; // tope global de empresas autónomas creadas por turno
-  if(!S.aiCreated||S.aiCreated.turn!==turnNo())S.aiCreated={turn:turnNo(),count:0};
-  const order=nations.map((country,idx)=>({country,idx}));
-  for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]]} // orden al azar: ningún país tiene prioridad fija
-  order.forEach(({country,idx})=>{
-   if(S.aiCreated.count>=MAX_NEW_PER_TURN)return;
+  ensure();nations.forEach((country,idx)=>{
    const count=S.companies.filter(c=>c.country===country).length;if(count>=18)return;
    if(S.aiCreationByCountry[country]===undefined)S.aiCreationByCountry[country]=turnNo()-Math.floor(Math.random()*4);
    const interval=country===player()?6:5;
    const elapsed=turnNo()-num(S.aiCreationByCountry[country]);
    if(elapsed>=interval&&Math.random()<(country===player()?.78:.68)){
-    const co=createAutonomousCompany(country,idx);if(co){S.aiCreationByCountry[country]=turnNo();S.aiCreated.count++}
+    const co=createAutonomousCompany(country,idx);if(co)S.aiCreationByCountry[country]=turnNo();
    }
   });
  }
@@ -3463,90 +3457,39 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  const LAB=window.omEmploymentV2||(window.omEmploymentV2={lastTurn:{},lastIndex:{}});
  function updateEmployment(){if(!window.omBancoCentralState||!S)return;const W=window.omBancoCentralState;W.economies=W.economies||{};let names=[];try{names=Object.keys(countries||{}).filter(x=>x!=='ONU'&&x!=='Mundo')}catch(e){names=[me()]};names.forEach(name=>{let x;try{x=typeof cstate==='function'?cstate(name):null}catch(e){}if(!x)return;const e=W.economies[name]||(W.economies[name]={inflation:4,rate:8,unemployment:7.5,history:[]});if(LAB.lastTurn[name]===t())return;const idx=n(x.industrialIndex)||100,prev=Number.isFinite(Number(LAB.lastIndex[name]))?Number(LAB.lastIndex[name]):idx;const industrialGrowth=idx-prev;const activeProjects=(x.projects||[]).length;let productiveProjects=[];try{productiveProjects=typeof omProductive!=='undefined'?(omProductive.projects||[]).filter(p=>p.country===name&&p.status==='Produciendo'):[]}catch(e){}const foreignCapital=productiveProjects.filter(p=>p.investor&&p.investor!==name).reduce((a,p)=>a+Math.max(0,n(p.amount)),0);const productiveIndexGrowth=productiveProjects.length*.08;if(productiveIndexGrowth)x.industrialIndex=clamp(idx+productiveIndexGrowth,40,180);const effectiveIndex=n(x.industrialIndex)||idx;const recentSignals=Object.values(S.sectorSignals||{}).filter(z=>z.country===name&&t()-n(z.lastTurn)<=2);const recentInvestment=recentSignals.reduce((a,z)=>a+(Array.isArray(z.events)?z.events.filter(ev=>t()-n(ev.turn)<=2).reduce((q,ev)=>q+Math.max(0,n(ev.amount)),0):0),0);const foreignDeals=(S.companyLog||[]).filter(z=>z.country===name&&t()-n(z.turn)<=2&&/investment|corporate|joint|merger/i.test(String(z.kind||''))).reduce((a,z)=>a+Math.max(0,n(z.amount)),0);const inflow=Math.min(8,recentInvestment*.35+foreignDeals*.5+foreignCapital*.025);const jobsEffect=Math.max(0,industrialGrowth)*.035+activeProjects*.018+productiveProjects.length*.025+Math.min(.18,foreignCapital*.01)+inflow*.012;const contraction=Math.max(0,-industrialGrowth)*.04;const delta=clamp(.012+contraction-jobsEffect,-.22,.16);e.unemployment=clamp(n(e.unemployment||7.5)+delta,.5,35);x.employment=clamp(n(x.employment||100)+Math.max(-.4,industrialGrowth*.3+activeProjects*.05+inflow*.03),40,180);LAB.lastTurn[name]=t();LAB.lastIndex[name]=effectiveIndex;if(name===me()&&Math.abs(delta)>.015)news('Mercado laboral',`El desempleo de ${name} ${delta<0?'bajó':'subió'} ${Math.abs(delta).toFixed(2)} puntos y se ubicó en ${e.unemployment.toFixed(2)}%. Variación asociada a actividad industrial, proyectos e inversión reciente.`);});}
  // Balances: cada compañía publica ingresos, costos, resultado, activos, deuda y plantilla.
- // Balances semestrales: cada 6 turnos (6 meses) cada compañía publica un balance nuevo que REEMPLAZA al anterior (no se guarda historial mensual).
- function updateCompanyAccounts(){
-  if(!S||!Array.isArray(S.companies))return;
-  const turnNow=t(),isClose=turnNow>0&&turnNow%6===0,fromTurn=Math.max(0,turnNow-5);
-  const logiByCo={};(S.commodityOrders||[]).forEach(o=>{if(o.status==='Entregada'&&n(o.deliveredTurn)>=fromTurn&&n(o.deliveredTurn)<=turnNow&&o.logisticsId!=null){const k=String(o.logisticsId);const e=logiByCo[k]||(logiByCo[k]={rev:0,cnt:0});e.rev+=n(o.logisticsFee)||n(o.totalUSD)*.06;e.cnt++}});
-  const exportContracts=(typeof S.trade!=='undefined'&&Array.isArray(S.trade))?S.trade.filter(z=>z.status==='active'&&z.kind==='export'):[];
-  S.companies.forEach(c=>{
-   if(c.accounts&&c.accounts.history)delete c.accounts.history;
-   const opening=!c.accounts||c.accounts.lastTurn===undefined||n(c.accounts.lastTurn)<0;
-   if(!(isClose||opening)||(c.accounts&&c.accounts.lastTurn===turnNow))return;
-   const M=6,capital=Math.max(.1,n(c.capital)||n(c.marketCap)||1);
-   const lg=logiByCo[String(c.id)]||{rev:0,cnt:0};
-   const myContracts=/logística|transporte/i.test(c.sector+' '+c.name)?exportContracts.filter(z=>z.from===c.country||z.to===c.country):[];
-   const contractRevenue=myContracts.reduce((x,z)=>x+n(z.monthlyValue),0)*.22*M;
-   const baseRevenue=capital*(c.sector==='Finanzas'?.032:c.sector==='Tecnología'?.029:c.sector==='Petróleo y gas'||c.sector==='Minería'?.027:.023)*M;
-   const grossRevenue=baseRevenue+lg.rev+contractRevenue;
-   const sanctionLevel=n(UN.sanctions[c.country]);
-   const revenue=grossRevenue*Math.max(.55,1-.055*sanctionLevel);
-   const costRate=c.sector==='Tecnología'?.69:c.sector==='Finanzas'?.62:c.sector==='Transporte y logística'?.74:.78;
-   // Riesgo operativo del semestre (±20 % sobre los costos): permite pérdidas aun sin sanciones.
-   const shock=isClose?(Math.random()+Math.random()+Math.random()-1.5)*.4:0;
-   const operatingCosts=(baseRevenue*costRate+(lg.rev+contractRevenue)*.58)*(1+shock)+grossRevenue*sanctionLevel*.012;
-   const netProfit=revenue-operatingCosts,taxes=Math.max(0,netProfit)*.12,afterTax=netProfit-taxes;
-   const prevDebt=c.debt===undefined?capital*.18:n(c.debt);
-   const debt=afterTax<0?prevDebt-afterTax:Math.max(capital*.05,prevDebt-afterTax*.6);
-   const assets=capital*1.35+Math.max(0,afterTax)*2,liabilities=capital*.24+debt;
-   const employees=Math.max(40,Math.round(capital*(c.sector==='Tecnología'?850:c.sector==='Transporte y logística'?1250:c.sector==='Finanzas'?420:1050)));
-   const prev=n(c.accounts&&c.accounts.afterTax);
-   if(isClose){
-    c.lossStreak=afterTax<0?n(c.lossStreak)+1:0;
-    const perf=clamp((afterTax/Math.max(.5,capital))*38,-15,15);
-    c.lastPrice=n(c.price)||n(c.lastPrice);c.price=Math.max(.1,c.price*(1+perf/100));c.change=((c.price-c.lastPrice)/Math.max(.1,c.lastPrice))*100;c.marketCap=c.price*n(c.sharesOutstanding)/1e9;
-   }
-   c.debt=debt;c.profit=afterTax;
-   c.accounts={lastTurn:turnNow,fromTurn,period:date(),months:M,closed:isClose,revenue,sanctionLevel,operatingCosts,netProfit,afterTax,taxes,assets,liabilities,equity:assets-liabilities,debt,employees,logisticsRevenue:lg.rev,logisticsContracts:lg.cnt+myContracts.length,profitChange:prev?((afterTax-prev)/Math.abs(prev))*100:0};
-  });
- }
- // Quiebras: se evalúan al cerrar cada semestre, con los balances nuevos. Quiebra la empresa con 2 semestres seguidos en pérdida o con patrimonio negativo.
- function processBankruptcies(turnNow){
-  const failed=[];
-  const perCountry={};S.companies.forEach(c=>{perCountry[c.country]=(perCountry[c.country]||0)+1});
-  const me0=me();
-  [...S.companies].forEach(c=>{
-   const a=c.accounts;if(!a||!a.closed||a.lastTurn!==turnNow)return;
-   if(turnNow-n(c.createdTurn)<12)return;
-   if((perCountry[c.country]||0)<=4)return;
-   const reason=n(a.equity)<=0?'patrimonio negativo':(n(c.lossStreak)>=2?n(c.lossStreak)+' semestres seguidos con pérdidas':'');
-   if(!reason)return;
-   perCountry[c.country]--;
-   const i=S.companies.indexOf(c);if(i>=0)S.companies.splice(i,1);
-   Object.values(S.funds||{}).forEach(f=>{if(f&&f.portfolio)delete f.portfolio[c.id]});
-   const rec={turn:turnNow,id:c.id,name:c.name,country:c.country,sector:c.sector,reason,lastResult:n(a.afterTax)};
-   failed.push(rec);
-   if(!Array.isArray(S.bankruptcies))S.bankruptcies=[];
-   S.bankruptcies.push(rec);if(S.bankruptcies.length>40)S.bankruptcies.shift();
-   if(Array.isArray(S.companyLog)){S.companyLog.push({turn:turnNow,country:c.country,kind:'bankruptcy',companyId:c.id,name:c.name,sector:c.sector,amount:0,text:c.name+' ('+c.country+') quebró: '+reason+'.'});if(S.companyLog.length>100)S.companyLog.shift()}
-   const held=n(c.holdings&&c.holdings[me0])+n(c.holdings&&c.holdings['FONDO:'+me0]);
-   if((c.country===me0||held>0)&&typeof addNews==='function')addNews('Quiebra empresarial',c.name+' ('+c.country+', '+c.sector+') quebró por '+reason+'. Sus accionistas pierden la participación.');
-  });
-  return failed;
- }
- // Cierre semestral: archiva el resumen del semestre (los balances por empresa ya son semestrales y reemplazan al anterior).
+ function updateCompanyAccounts(){if(!S||!Array.isArray(S.companies))return;const turnNow=t();S.companies.forEach(c=>{c.accounts=c.accounts||{history:[],lastTurn:-1};if(c.accounts.lastTurn===turnNow)return;const capital=Math.max(.1,n(c.capital)||n(c.marketCap)||1);let logisticsRevenue=0,logisticsContracts=0;const delivered=(S.commodityOrders||[]).filter(o=>o.status==='Entregada'&&n(o.deliveredTurn)===turnNow&&String(o.logisticsId)===String(c.id));delivered.forEach(o=>{logisticsRevenue+=n(o.logisticsFee)||n(o.totalUSD)*.06;logisticsContracts++});let contractRevenue=0;const activeContracts=(typeof S.trade!=='undefined'?S.trade:[]);(activeContracts||[]).filter(z=>z.status==='active'&&z.kind==='export'&&(z.from===c.country||z.to===c.country)&&/logística|transporte/i.test(c.sector+' '+c.name)).forEach(z=>{contractRevenue+=n(z.monthlyValue)*.22;logisticsContracts++});
+   const baseRevenue=capital*(c.sector==='Finanzas'?.032:c.sector==='Tecnología'?.029:c.sector==='Petróleo y gas'||c.sector==='Minería'?.027:.023);const grossRevenue=baseRevenue+logisticsRevenue+contractRevenue;const sanctionLevel=n(UN.sanctions[c.country]);const revenue=grossRevenue*Math.max(.55,1-.055*sanctionLevel);const costRate=c.sector==='Tecnología'?.69:c.sector==='Finanzas'?.62:c.sector==='Transporte y logística'?.74:.78;const operatingCosts=baseRevenue*costRate+(logisticsRevenue+contractRevenue)*.58+grossRevenue*sanctionLevel*.012;const netProfit=revenue-operatingCosts;const taxes=Math.max(0,netProfit)*.12;const afterTax=netProfit-taxes;const assets=capital*1.35+Math.max(0,afterTax)*2;const liabilities=capital*.42;const debt=capital*.18;const employees=Math.max(40,Math.round(capital*(c.sector==='Tecnología'?850:c.sector==='Transporte y logística'?1250:c.sector==='Finanzas'?420:1050)));
+   const prev=n(c.accounts.netProfit);const perf=clamp((afterTax/Math.max(.5,capital))*38,-5,5);c.lastPrice=n(c.price)||n(c.lastPrice);c.price=Math.max(.1,c.price*(1+perf/100));c.change=((c.price-c.lastPrice)/Math.max(.1,c.lastPrice))*100;c.marketCap=c.price*n(c.sharesOutstanding)/1e9;c.profit=afterTax;c.accounts={lastTurn:turnNow,period:date(),revenue,sanctionLevel,operatingCosts,netProfit,afterTax,taxes,assets,liabilities,equity:assets-liabilities,debt,employees,logisticsRevenue,logisticsContracts,profitChange:prev?((afterTax-prev)/Math.abs(prev))*100:0,history:c.accounts.history||[]};c.accounts.history.unshift({turn:turnNow,date:date(),revenue,operatingCosts,netProfit:afterTax,taxes,sanctionLevel,assets,liabilities,equity:assets-liabilities,debt,employees,logisticsRevenue,logisticsContracts});c.accounts.history=c.accounts.history.slice(0,6);
+  });}
+ // Cierre semestral: archiva resultados antes de depurar el detalle mensual.
  function closeSemiannualAccounts(){
+  if(!S||!Array.isArray(S.companies))return;
   const turnNow=t();
   if(turnNow<=0||turnNow%6!==0||Number(S.lastSemiannualCloseTurn)===turnNow)return;
-  const fromTurn=turnNow-5,mine=me();
-  const companyReports=S.companies.filter(c=>c.country===mine&&c.accounts&&c.accounts.closed&&c.accounts.lastTurn===turnNow).map(c=>{const a=c.accounts;return {id:c.id,name:c.name,country:c.country,sector:c.sector,months:6,revenue:n(a.revenue),operatingCosts:n(a.operatingCosts),netProfit:n(a.afterTax),taxes:n(a.taxes),logisticsRevenue:n(a.logisticsRevenue),closing:{assets:n(a.assets),liabilities:n(a.liabilities),equity:n(a.equity),debt:n(a.debt),employees:n(a.employees)}}});
+  const fromTurn=turnNow-5;
+  const companyReports=S.companies.map(c=>{
+   const h=(Array.isArray(c.accounts?.history)?c.accounts.history:[]).filter(x=>n(x.turn)>=fromTurn&&n(x.turn)<=turnNow);
+   if(!h.length)return null;
+   const sum=k=>h.reduce((a,x)=>a+n(x[k]),0);
+   const last=h.slice().sort((a,b)=>n(b.turn)-n(a.turn))[0];
+   return {id:c.id,name:c.name,country:c.country,sector:c.sector,months:h.length,revenue:sum('revenue'),operatingCosts:sum('operatingCosts'),netProfit:sum('netProfit'),taxes:sum('taxes'),logisticsRevenue:sum('logisticsRevenue'),closing:{assets:n(last.assets),liabilities:n(last.liabilities),equity:n(last.equity),debt:n(last.debt),employees:n(last.employees)}};
+  }).filter(Boolean);
   const transactions=(Array.isArray(S.tradeLog)?S.tradeLog:[]).filter(x=>n(x.turn)>=fromTurn&&n(x.turn)<=turnNow);
   const corporateEvents=(Array.isArray(S.companyLog)?S.companyLog:[]).filter(x=>n(x.turn)>=fromTurn&&n(x.turn)<=turnNow);
   const txByType={};
   transactions.forEach(x=>{const k=String(x.type||'Otra');if(!txByType[k])txByType[k]={count:0,amount:0};txByType[k].count++;txByType[k].amount+=n(x.amount);});
-  const failed=processBankruptcies(turnNow);
   if(!Array.isArray(S.semiannualReports))S.semiannualReports=[];
-  S.semiannualReports.push({fromTurn,toTurn:turnNow,period:'Turnos '+fromTurn+'–'+turnNow,companies:companyReports,bankruptcies:failed.length,transactions:{count:transactions.length,totalAmount:transactions.reduce((a,x)=>a+n(x.amount),0),byType:txByType},corporateEvents:{count:corporateEvents.length,totalInvestment:corporateEvents.reduce((a,x)=>a+n(x.amount),0)}});
-  if(S.semiannualReports.length>4)S.semiannualReports=S.semiannualReports.slice(-4);
+  S.semiannualReports.push({fromTurn,toTurn:turnNow,period:'Turnos '+fromTurn+'–'+turnNow,companies:companyReports,transactions:{count:transactions.length,totalAmount:transactions.reduce((a,x)=>a+n(x.amount),0),byType:txByType},corporateEvents:{count:corporateEvents.length,totalInvestment:corporateEvents.reduce((a,x)=>a+n(x.amount),0)}});
+  // Mantiene balances vigentes, capital, acciones y participaciones.
+  S.companies.forEach(c=>{if(c.accounts&&Array.isArray(c.accounts.history))c.accounts.history=c.accounts.history.filter(x=>n(x.turn)>=fromTurn);});
   S.tradeLog=transactions;
   S.companyLog=corporateEvents;
   S.lastSemiannualCloseTurn=turnNow;
  }
  function accountsPanel(){if(!S)return '';const companies=S.companies.filter(c=>c.country===me()).sort((a,b)=>n(b.accounts?.netProfit)-n(a.accounts?.netProfit));const rows=companies.map(c=>{const a=c.accounts||{};return `<tr><td><b>${esc(c.name)}</b><br><small>${esc(c.sector)}</small></td><td>USD ${n(a.revenue).toFixed(3)}</td><td>USD ${n(a.operatingCosts).toFixed(3)}</td><td class="${n(a.afterTax)>=0?'up':'down'}">USD ${n(a.afterTax).toFixed(3)}</td><td>USD ${n(a.assets).toFixed(2)}</td><td>USD ${n(a.liabilities).toFixed(2)}</td><td>USD ${n(a.debt).toFixed(2)}</td><td>${n(a.employees).toLocaleString('es-AR')}</td><td>${n(c.marketCap).toFixed(2)}</td></tr>`}).join('')||'<tr><td colspan="9">No hay empresas nacionales listadas.</td></tr>';
-  const recent=S.companies.filter(c=>c.country===me()&&n(c.accounts?.lastTurn)>=0).sort((a,b)=>n(b.accounts.lastTurn)-n(a.accounts.lastTurn)).slice(0,6).map(c=>`<div class="news"><small>${esc(c.accounts.period)} · ${esc(c.name)}</small><p>Ingresos: USD ${n(c.accounts.revenue).toFixed(3)} mil M · Costos: USD ${n(c.accounts.operatingCosts).toFixed(3)} mil M · Resultado neto: <b class="${n(c.accounts.afterTax)>=0?'up':'down'}">USD ${n(c.accounts.afterTax).toFixed(3)} mil M</b>. Capitalización: USD ${n(c.marketCap).toFixed(2)} mil M.</p>${c.accounts.logisticsContracts?`<small>Contratos logísticos: ${c.accounts.logisticsContracts} · ingresos logísticos: USD ${n(c.accounts.logisticsRevenue).toFixed(3)} mil M</small>`:''}${c.accounts.sanctionLevel?`<small>Impacto de sanciones internacionales: nivel ${c.accounts.sanctionLevel}</small>`:''}</div>`).join('');
+  const recent=S.companies.filter(c=>c.country===me()&&c.accounts?.history?.length).sort((a,b)=>n(b.accounts.lastTurn)-n(a.accounts.lastTurn)).slice(0,6).map(c=>`<div class="news"><small>${esc(c.accounts.period)} · ${esc(c.name)}</small><p>Ingresos: USD ${n(c.accounts.revenue).toFixed(3)} mil M · Costos: USD ${n(c.accounts.operatingCosts).toFixed(3)} mil M · Resultado neto: <b class="${n(c.accounts.afterTax)>=0?'up':'down'}">USD ${n(c.accounts.afterTax).toFixed(3)} mil M</b>. Capitalización: USD ${n(c.marketCap).toFixed(2)} mil M.</p>${c.accounts.logisticsContracts?`<small>Contratos logísticos: ${c.accounts.logisticsContracts} · ingresos logísticos: USD ${n(c.accounts.logisticsRevenue).toFixed(3)} mil M</small>`:''}${c.accounts.sanctionLevel?`<small>Impacto de sanciones internacionales: nivel ${c.accounts.sanctionLevel}</small>`:''}</div>`).join('');
   const reportsHtml=(Array.isArray(S.semiannualReports)?S.semiannualReports:[]).slice().reverse().slice(0,4).map(r=>{const own=(r.companies||[]).filter(c=>c.country===me());const items=own.map(c=>`<div class="news"><b>${esc(c.name)}</b> · ${esc(c.sector)}<p>Ingresos: USD ${n(c.revenue).toFixed(3)} mil M · Costos: USD ${n(c.operatingCosts).toFixed(3)} mil M · Ganancia neta: USD ${n(c.netProfit).toFixed(3)} mil M · Impuestos: USD ${n(c.taxes).toFixed(3)} mil M.</p><small>Cierre: activos ${n(c.closing?.assets).toFixed(2)} · pasivos ${n(c.closing?.liabilities).toFixed(2)} · patrimonio ${n(c.closing?.equity).toFixed(2)} · deuda ${n(c.closing?.debt).toFixed(2)} · empleados ${n(c.closing?.employees).toLocaleString('es-AR')}</small></div>`).join('');return `<div class="news"><h4>📊 ${esc(r.period||('Turnos '+r.fromTurn+'–'+r.toTurn))}</h4><p>Operaciones bursátiles: ${n(r.transactions?.count)} · volumen: USD ${n(r.transactions?.totalAmount).toFixed(3)} mil M · eventos/inversiones corporativas: ${n(r.corporateEvents?.count)} · inversión registrada: USD ${n(r.corporateEvents?.totalInvestment).toFixed(3)} mil M.</p>${items||'<small>Sin empresas nacionales registradas en este cierre.</small>'}</div>`}).join('');
-  const bkHtml=(Array.isArray(S.bankruptcies)&&S.bankruptcies.length)?`<div style="margin:10px 0"><b>Quiebras recientes</b>${S.bankruptcies.slice(-6).reverse().map(r=>`<div class="news"><small>Turno ${n(r.turn)} · ${esc(r.country)}</small><p><b>${esc(r.name)}</b> (${esc(r.sector)}) quebró: ${esc(r.reason)}.</p></div>`).join('')}</div>`:'';
-  return `<section id="omCompanyAccounts" class="om-card" style="margin-top:22px"><div class="om-hero"><div><span class="om-kicker">MERCADO DE CAPITALES · INFORMACIÓN CONTABLE</span><h2>Balances empresariales</h2><p>Balances semestrales: cada 6 turnos el balance nuevo reemplaza al anterior. Dos semestres seguidos con pérdidas, o patrimonio negativo, llevan a la quiebra. Los ingresos logísticos incluyen las comisiones de los contratos de transporte registrados en el mercado de materias primas.</p></div><div class="om-hero-badge">📑 Balances</div></div>${bkHtml}<div style="overflow:auto"><table class="data-table"><thead><tr><th>Empresa</th><th>Ingresos</th><th>Costos operativos</th><th>Resultado neto</th><th>Activos</th><th>Pasivos</th><th>Deuda</th><th>Empleados</th><th>Capitalización</th></tr></thead><tbody>${rows}</tbody></table></div><h3>Últimos balances publicados</h3>${recent||'<p class="muted">Los balances se publican al avanzar el próximo mes.</p>'}<h3>Historial de cierres semestrales</h3>${reportsHtml||'<p class="muted">Todavía no hay cierres semestrales. El primero se generará al completar seis turnos.</p>'}<p class="om-note">Importes en miles de millones de USD simulados. La cotización incorpora el resultado neto, además de los factores de mercado existentes. La plantilla se estima según el capital y el sector.</p></section>`;}
+  return `<section id="omCompanyAccounts" class="om-card" style="margin-top:22px"><div class="om-hero"><div><span class="om-kicker">MERCADO DE CAPITALES · INFORMACIÓN CONTABLE</span><h2>Balances empresariales</h2><p>Resultados mensuales simulados. Los ingresos logísticos incluyen las comisiones de los contratos de transporte registrados en el mercado de materias primas.</p></div><div class="om-hero-badge">📑 Balances</div></div><div style="overflow:auto"><table class="data-table"><thead><tr><th>Empresa</th><th>Ingresos</th><th>Costos operativos</th><th>Resultado neto</th><th>Activos</th><th>Pasivos</th><th>Deuda</th><th>Empleados</th><th>Capitalización</th></tr></thead><tbody>${rows}</tbody></table></div><h3>Últimos balances publicados</h3>${recent||'<p class="muted">Los balances se publican al avanzar el próximo mes.</p>'}<h3>Historial de cierres semestrales</h3>${reportsHtml||'<p class="muted">Todavía no hay cierres semestrales. El primero se generará al completar seis turnos.</p>'}<p class="om-note">Importes en miles de millones de USD simulados. La cotización incorpora el resultado neto, además de los factores de mercado existentes. La plantilla se estima según el capital y el sector.</p></section>`;}
  const oldSelect=window.selectSection;
  if(typeof oldSelect==='function')window.selectSection=function(section){const r=oldSelect.apply(this,arguments);const body=document.getElementById('workspaceBody');if(!body)return r;if(section==='ONU'){body.innerHTML=resolutionRender();const title=document.getElementById('workspaceTitle');if(title)title.textContent='Naciones Unidas · conflictos y resoluciones';}if(section==='Bolsas'){const host=document.createElement('div');host.innerHTML=accountsPanel();body.appendChild(host.firstElementChild)}return r};
  const next=document.getElementById('nextTurn');if(next){const prior=next.onclick;next.onclick=function(...args){const result=prior?.apply(this,args);try{updateEmployment();updateCompanyAccounts();closeSemiannualAccounts();save();}catch(e){console.error('OM integrated economy:',e)}const active=document.querySelector('#nav button.active')?.dataset.section;if(active==='ONU')window.selectSection('ONU');if(active==='Bolsas')window.selectSection('Bolsas');return result};}
@@ -3647,23 +3590,5 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
 })();
 </script>
 
-<script>
-/* Optimización de guardado: recorta los decimales excesivos (de ~17 a 8 cifras significativas). El valor es prácticamente idéntico y la partida pesa mucho menos. */
-(function(){
- function slim(v){
-  if(typeof v==='number'){return Number.isInteger(v)||!isFinite(v)?v:Number(v.toPrecision(8))}
-  if(Array.isArray(v)){for(let i=0;i<v.length;i++)v[i]=slim(v[i]);return v}
-  if(v&&typeof v==='object'){for(const k in v)v[k]=slim(v[k]);return v}
-  return v;
- }
- const prev=window.collectGame;
- if(typeof prev==='function'&&!prev.__omSlim){
-  const wrapped=function(){const d=prev.apply(this,arguments);try{return slim(d)}catch(e){return d}};
-  wrapped.__omSlim=true;
-  window.collectGame=wrapped;
-  try{collectGame=wrapped}catch(e){}
- }
-})();
-</script>
 </body>
 </html>
