@@ -1085,11 +1085,12 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   const flag=n=>countries[n]?.flag||'🏳️';
 
   let omWorld={
-    prices:{petroleo:4.2,gas:2.8,alimentos:1.9,minerales:2.4,tecnologia:5.1,uranio:3.6},
+    prices:{petroleo:4.2,gas:2.8,alimentos:1.9,minerales:2.4,litio:2.4,tecnologia:5.1,uranio:3.6},
     marketLog:[],events:[],operations:[],memory:{},relations:{},stocks:{},politics:{},
     electionEvery:48,lastEventTurn:-99,completed:[],turnActions:0
   };
-  const omResourceNames={petroleo:'Petróleo',gas:'Gas natural',alimentos:'Alimentos',minerales:'Minerales',tecnologia:'Tecnología',uranio:'Uranio'};
+  const omResourceNames={petroleo:'Petróleo',gas:'Gas natural',alimentos:'Alimentos',minerales:'Minerales',litio:'Litio',tecnologia:'Semiconductores',uranio:'Uranio'};
+  if(!Number.isFinite(Number(omWorld.prices.litio))||Number(omWorld.prices.litio)<=0)omWorld.prices.litio=Number(omWorld.prices.minerales)||2.4;
   const omEventPool=[
     {name:'Tensión en una ruta energética',kind:'Energía',desc:'Una ruta estratégica de transporte energético enfrenta interrupciones y aumenta la incertidumbre del mercado.',price:{petroleo:1.22,gas:1.12},impact:'Los países importadores enfrentan mayores costos; los exportadores reciben una oportunidad comercial.'},
     {name:'Cosechas por debajo de lo esperado',kind:'Alimentos',desc:'Una temporada agrícola adversa reduce la oferta internacional de alimentos.',price:{alimentos:1.25},impact:'Aumenta la presión sobre los países importadores y la seguridad alimentaria.'},
@@ -1111,7 +1112,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   ];
   function omRelation(a,b){const k=[a,b].sort().join('|');if(omWorld.relations[k]===undefined){const ca=countries[a]||{},cb=countries[b]||{};omWorld.relations[k]=clamp(50+((Number(ca.relation)||50)-50)*.45+((Number(cb.relation)||50)-50)*.2,5,95)}return omWorld.relations[k]}
   function omChangeRelation(a,b,delta,reason){if(!a||!b||a===b)return;const k=[a,b].sort().join('|');omWorld.relations[k]=clamp(omRelation(a,b)+delta,0,100);if(a===player()&&countries[b])countries[b].relation=omWorld.relations[k];else if(b===player()&&countries[a])countries[a].relation=omWorld.relations[k];omWorld.operations.push({turn,kind:'Diplomacia',from:a,target:b,detail:reason||'Cambio en la relación bilateral',date:dateNow()})}
-  function omStock(n){if(!omWorld.stocks[n])omWorld.stocks[n]={petroleo:5,gas:5,alimentos:5,minerales:5,tecnologia:2,uranio:1};return omWorld.stocks[n]}
+  function omStock(n){if(window.omMarketCore?.stock)return window.omMarketCore.stock(n);if(!omWorld.stocks[n])omWorld.stocks[n]={petroleo:5,gas:5,alimentos:5,minerales:5,litio:2,tecnologia:2,uranio:1};if(omWorld.stocks[n].litio===undefined)omWorld.stocks[n].litio=2;return omWorld.stocks[n]}
   function omPolitics(n){if(!omWorld.politics[n])omWorld.politics[n]={opposition:42,mandate:4,party:'Coalición de gobierno',lastElection:turn,elections:0,agenda:'Crecimiento y estabilidad'};return omWorld.politics[n]}
   function omCard(title,sub,body,icon='✦'){return `<article class="om-card"><div class="om-card-head"><span class="om-icon">${icon}</span><div><h3>${title}</h3><small>${sub||''}</small></div></div>${body}</article>`}
   function omMetric(label,value,unit=''){return `<div class="om-metric"><small>${label}</small><b>${safe(value)}${unit}</b></div>`}
@@ -1132,7 +1133,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
     return `<div class="om-hero"><div><span class="om-kicker">COMERCIO GLOBAL · PRODUCCIÓN · EXPORTACIONES</span><h2>Mercado mundial</h2><p>Acá se concentran las compras, ventas de recursos, contratos de exportación y cobros en divisas. La producción de tus industrias alimenta automáticamente el inventario disponible.</p></div><div class="om-hero-badge">📈 Mercado internacional</div></div>
     <div class="om-market-grid">${prices}</div>
     <div class="om-grid-2">
-      ${omCard('Operar en el mercado','Comprar o vender recursos estratégicos',`<div class="field"><label>Operación</label><select id="omTradeSide" onchange="omMarketUpdateQtyPreview()"><option value="sell">Vender / exportar</option><option value="buy">Comprar / importar</option></select></div><div class="field"><label>Recurso</label><select id="omTradeResource" onchange="omMarketApplyDealCurrency();omMarketUpdateQtyPreview()">${Object.entries(omResourceNames).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div><div class="field" style="grid-column:1/-1;padding:12px;border:1px solid var(--line,#34445a);border-radius:12px;background:rgba(255,255,255,.025)"><label for="omTradeQty">Cantidad a vender / comprar (unidades)</label><input id="omTradeQty" type="number" inputmode="decimal" min="0.1" max="100000" step="0.1" value="1" oninput="omMarketUpdateQtyPreview()" style="width:100%;min-height:44px;font-size:1.05rem"><small id="omTradeQtyHelp" class="om-note">Disponible en inventario: consultando…</small><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><button type="button" onclick="omMarketSetMaxQty()">Usar cantidad disponible</button><span id="omTradeQtyEstimate" class="muted">Valor estimado: —</span></div></div><div class="field"><label>País comprador (para ventas)</label><select id="omTradeBuyer" onchange="omMarketApplyDealCurrency()">${buyerOptions}</select></div><div class="field"><label>Moneda de cobro</label><select id="omTradeCurrency">${currencyOptions}</select></div><p class="om-note">El precio se calcula con la cotización mundial. Al vender, la mercancía se descuenta del inventario, el comprador paga y el ingreso se acredita al país exportador. El registro muestra el importe en la moneda pactada y su equivalente en USD.</p><button class="primary" onclick="omExecuteTrade()">Confirmar operación</button>`,'💱')}
+      ${omCard('Operar en el mercado','Comprar o vender recursos estratégicos',`<div class="field"><label>Operación</label><select id="omTradeSide" onchange="omMarketUpdateQtyPreview()"><option value="sell">Vender / exportar</option><option value="buy">Comprar / importar</option></select></div><div class="field"><label>Recurso</label><select id="omTradeResource" onchange="omMarketApplyDealCurrency();omMarketUpdateQtyPreview()">${Object.entries(omResourceNames).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div><div class="field" style="grid-column:1/-1;padding:12px;border:1px solid var(--line,#34445a);border-radius:12px;background:rgba(255,255,255,.025)"><label for="omTradeQty">Cantidad a vender / comprar (unidades)</label><input id="omTradeQty" type="number" inputmode="decimal" min="0.1" max="100000" step="0.1" value="1" oninput="omMarketUpdateQtyPreview()" style="width:100%;min-height:44px;font-size:1.05rem"><small id="omTradeQtyHelp" class="om-note">Disponible en inventario: consultando…</small><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><button type="button" onclick="omMarketSetMaxQty()">Usar cantidad disponible</button><span id="omTradeQtyEstimate" class="muted">Valor estimado: —</span></div></div><div class="field"><label>País comprador (para ventas)</label><select id="omTradeBuyer" onchange="omMarketApplyDealCurrency()">${buyerOptions}</select></div><div class="field"><label>Moneda de cobro</label><select id="omTradeCurrency">${currencyOptions}</select></div><p class="om-note">Todas las operaciones usan la cotización visible en este mercado. Al vender, la mercancía se descuenta del inventario, el comprador paga y el ingreso se acredita al país exportador. El registro muestra el importe en la moneda pactada y su equivalente en USD.</p><button class="primary" onclick="omExecuteTrade()">Confirmar operación</button>`,'💱')}
       ${omCard('Inventario disponible','Producción nacional y existencias',stocks,'🏭')}
     </div>
     <h3 class="om-section-title">Operaciones recientes</h3><div class="om-list">${log||'<p class="muted">Todavía no realizaste operaciones comerciales.</p>'}</div>
@@ -1159,7 +1160,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   window.omExecuteTrade=function(){
     const side=$('omTradeSide')?.value,res=$('omTradeResource')?.value,qty=Number($('omTradeQty')?.value),price=Number(omWorld.prices[res]),stock=omStock(player());
     if(!res||!Number.isFinite(qty)||qty<=0||qty>100000||!Number.isFinite(price)||price<=0)return notify('Revisá el recurso y la cantidad.');
-    const totalUSD=qty*price;
+    const totalUSD=window.omMarketCore?.total?window.omMarketCore.total(res,qty):qty*price;
     if(side==='buy'){
       if(budget<totalUSD)return notify('No alcanza el presupuesto para esta importación.');
       budget-=totalUSD;stock[res]=(Number(stock[res])||0)+qty;
@@ -1171,7 +1172,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
     }else{
       const buyer=$('omTradeBuyer')?.value,fx=window.omFX;let code=$('omTradeCurrency')?.value;
       if(!buyer||buyer===player()||!countries[buyer])return notify('Elegí un país comprador válido.');
-      const sectorMap={petroleo:'petroleo',gas:'gas',minerales:'mineria',alimentos:'agro',tecnologia:'tecnologia',uranio:'uranio'};
+      const sectorMap={petroleo:'petroleo',gas:'gas',minerales:'mineria',litio:'mineria',alimentos:'agro',tecnologia:'tecnologia',uranio:'uranio'};
       const agreed=(fx?.tradeDeals||[]).find(d=>d.status==='Activo'&&d.exporter===player()&&d.buyer===buyer&&sectorMap[res]===d.sector);
       if(agreed){code=agreed.currency;if($('omTradeCurrency'))$('omTradeCurrency').value=code;}
       const currency=fx?.currencies?.[code];if(!currency)return notify('La moneda seleccionada no está disponible.');
@@ -1198,7 +1199,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
     }
     omRefreshStats();selectSection('Mercado mundial');notify(side==='sell'?'Venta completada: se entregó la mercancía y se acreditó el pago.':'Importación completada.');
   };
-  window.omMarketApplyDealCurrency=function(){const buyer=$('omTradeBuyer')?.value,res=$('omTradeResource')?.value,fx=window.omFX,map={petroleo:'petroleo',gas:'gas',minerales:'mineria',alimentos:'agro',tecnologia:'tecnologia',uranio:'uranio'};const d=(fx?.tradeDeals||[]).find(x=>x.status==='Activo'&&x.exporter===player()&&x.buyer===buyer&&x.sector===map[res]);if(d&&$('omTradeCurrency'))$('omTradeCurrency').value=d.currency;};
+  window.omMarketApplyDealCurrency=function(){const buyer=$('omTradeBuyer')?.value,res=$('omTradeResource')?.value,fx=window.omFX,map={petroleo:'petroleo',gas:'gas',minerales:'mineria',litio:'mineria',alimentos:'agro',tecnologia:'tecnologia',uranio:'uranio'};const d=(fx?.tradeDeals||[]).find(x=>x.status==='Activo'&&x.exporter===player()&&x.buyer===buyer&&x.sector===map[res]);if(d&&$('omTradeCurrency'))$('omTradeCurrency').value=d.currency;};
 
   function omTerritoriesRender(){const names=omTerritoryNames();const cards=names.map(n=>{const d=typeof DIS!=='undefined'?DIS[n]:null;const claimant=d?.claim||d?.claimant||d?.claimedBy||d?.country||'Estado reclamante';const status=d?.status||d?.recognitionStatus|| (countries[n]?.recognized?'Reconocido parcialmente':'Estatus disputado');const investment=typeof omInvestments!=='undefined'?omInvestments.filter(x=>x.target===n&&x.from===player()).reduce((a,x)=>a+Number(x.amount||0),0):0;return `<div class="om-territory"><div class="om-territory-top"><span class="om-territory-flag">◈</span><div><b>${safe(n)}</b><small>${safe(status)} · Reclamante: ${safe(claimant)}</small></div></div><div class="om-territory-data"><span>Inversión propia <b>${money(investment)} mil M</b></span><span>Reconocimiento <b>${safe(d?.recognitionStatus||'Sin definir')}</b></span></div><p>La inversión, el reconocimiento y la asistencia pueden alterar la influencia externa y provocar respuestas del Estado reclamante.</p></div>`}).join('');return `<div class="om-hero"><div><span class="om-kicker">SOBERANÍA · AUTODETERMINACIÓN · INFLUENCIA</span><h2>Territorios en disputa</h2><p>Seguí la evolución política de los territorios y las reacciones de los países que reclaman su soberanía.</p></div><div class="om-hero-badge">🗺️ Expedientes territoriales</div></div><div class="om-grid-2">${omCard('Iniciativa diplomática','Proponer un cambio de estatus',`<div class="field"><label>Territorio</label><select id="omTerritory">${names.map(n=>`<option>${safe(n)}</option>`).join('')}</select></div><div class="field"><label>Medida</label><select id="omTerritoryAction"><option value="recognize">Reconocer su independencia</option><option value="neutral">Mantener posición neutral</option><option value="autonomy">Proponer autonomía negociada</option><option value="referendum">Solicitar referéndum supervisado</option><option value="aid">Ofrecer asistencia humanitaria</option></select></div><button class="primary" onclick="omTerritoryDecision()">Presentar iniciativa</button>`,'⚖️')}${omCard('Equilibrio diplomático','Las decisiones generan reacciones',`<p>El reconocimiento puede deteriorar las relaciones con el Estado reclamante. La autonomía y la supervisión internacional suelen abrir más espacio para negociar.</p><div class="om-note">Los expedientes territoriales se mantienen separados de las fichas de los Estados reconocidos.</div>`,'🌐')}</div><div class="om-territory-grid">${cards||'<p class="muted">No hay expedientes territoriales registrados.</p>'}</div>`}
   window.omTerritoryDecision=function(){const n=$('omTerritory')?.value,a=$('omTerritoryAction')?.value;if(!n)return notify('No hay territorios disponibles.');const d=typeof DIS!=='undefined'?(DIS[n]||(DIS[n]={})):{};const claimant=d.claim||d.claimant||d.claimedBy||d.country;let msg='';if(a==='recognize'){d.recognitionStatus='Reconocido por '+player();d.status='Reconocimiento diplomático';if(claimant)omChangeRelation(player(),claimant,-18,'Reconocimiento de '+n);msg=player()+' reconoció la independencia de '+n+'. La decisión provoca tensión con '+(claimant||'el Estado reclamante')+'.'}else if(a==='neutral'){d.recognitionStatus='Neutralidad';if(claimant)omChangeRelation(player(),claimant,2,'Declaración de neutralidad');msg=player()+' anunció una posición neutral sobre '+n+'.'}else if(a==='autonomy'){d.status='Propuesta de autonomía';if(claimant)omChangeRelation(player(),claimant,1,'Propuesta de autonomía negociada');msg=player()+' propuso un régimen de autonomía negociada para '+n+'.'}else if(a==='referendum'){d.status='Propuesta de referéndum supervisado';if(claimant)omChangeRelation(player(),claimant,-3,'Propuesta de referéndum');msg=player()+' solicitó un referéndum supervisado en '+n+'.'}else{d.status='Asistencia humanitaria ofrecida';budget=Math.max(0,budget-1);if(claimant)omChangeRelation(player(),claimant,1,'Asistencia humanitaria');msg=player()+' ofreció asistencia humanitaria a '+n+'.'}omWorld.operations.push({turn,kind:'Territorio',from:player(),target:n,detail:msg,date:dateNow()});addNews('Crisis territorial',msg);omRefreshStats();selectSection('Territorios')};
@@ -1224,7 +1225,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
     // Elecciones periódicas y presión interna.
     listCountries().forEach(n=>{const p=omPolitics(n);if(turn>0&&turn-p.lastElection>=omWorld.electionEvery){p.lastElection=turn;p.elections++;p.mandate++;const c=countries[n];const score=Number(c?.approval??(n===player()?approval:50));const result=score>=48?'continuidad del oficialismo':'alternancia o coalición';if(n===player()){if(score<43){stability=clamp(stability-5);approval=clamp(approval+1);addNews('Elecciones nacionales','El oficialismo pierde apoyo y debe negociar una nueva mayoría.');}else{approval=clamp(approval+2);addNews('Elecciones nacionales','El gobierno renueva su mandato electoral.')}}p.party=result;addNews('Ciclo electoral',n+': '+result+'.') }});
     // Acontecimiento global no más de uno por turno y con pausas para evitar saturación.
-    if(turn-omWorld.lastEventTurn>=2&&Math.random()<.62){const e=omEventPool[Math.floor(Math.random()*omEventPool.length)];Object.entries(e.price||{}).forEach(([k,v])=>omWorld.prices[k]=Math.max(.35,Math.min(12,omWorld.prices[k]*v)));const target=ai[Math.floor(Math.random()*Math.max(1,ai.length))]||player();omWorld.events.push({...e,date:dateNow(),target});omWorld.lastEventTurn=turn;addNews('Acontecimiento mundial',e.name+': '+e.desc);if(e.kind==='Catástrofe'||e.kind==='Humanitaria'){const c=countries[target];if(c)c.stability=clamp((Number(c.stability)||50)-2);}}
+    if(turn-omWorld.lastEventTurn>=2&&Math.random()<.62){const e=omEventPool[Math.floor(Math.random()*omEventPool.length)];Object.entries(e.price||{}).forEach(([k,v])=>{omWorld.prices[k]=Math.max(.35,Math.min(12,omWorld.prices[k]*v));if(k==='minerales')omWorld.prices.litio=Math.max(.35,Math.min(12,omWorld.prices.litio*v));});const target=ai[Math.floor(Math.random()*Math.max(1,ai.length))]||player();omWorld.events.push({...e,date:dateNow(),target});omWorld.lastEventTurn=turn;addNews('Acontecimiento mundial',e.name+': '+e.desc);if(e.kind==='Catástrofe'||e.kind==='Humanitaria'){const c=countries[target];if(c)c.stability=clamp((Number(c.stability)||50)-2);}}
     // Desgaste político por conflictos largos y deuda elevada: impacto moderado.
     if(typeof wars!=='undefined'&&wars.some(w=>w.status==='active'&&(w.attacker===player()||w.target===player()))){approval=clamp(approval-1);stability=clamp(stability-1)}
     omWorld.turnActions++;if(omWorld.operations.length>300)omWorld.operations=omWorld.operations.slice(-300);if(omWorld.marketLog.length>1500)omWorld.marketLog=omWorld.marketLog.slice(-1500);if(omWorld.events.length>60)omWorld.events=omWorld.events.slice(-60);
@@ -1445,7 +1446,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
  const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,Number(v)||0));
  const fmt=v=>(Number(v)||0).toFixed(2);
  const dateLabel=()=> $('date')?.textContent||('Turno '+turn);
- const sectors={petroleo:{label:'Petróleo',priceKey:'petroleo',base:4.2},gas:{label:'Gas natural',priceKey:'gas',base:2.8},mineria:{label:'Minería y minerales',priceKey:'minerales',base:2.4},agro:{label:'Agricultura y alimentos',priceKey:'alimentos',base:1.9},uranio:{label:'Uranio',priceKey:'uranio',base:3.6},semiconductores:{label:'Semiconductores',priceKey:'chips',base:7.8},tecnologia:{label:'Tecnología y manufacturas',priceKey:'tecnologia',base:5.1},industria:{label:'Industria manufacturera',priceKey:'tecnologia',base:3.4},energia:{label:'Energía eléctrica',priceKey:'gas',base:2.3}};
+ const sectors={petroleo:{label:'Petróleo',priceKey:'petroleo',base:4.2},gas:{label:'Gas natural',priceKey:'gas',base:2.8},mineria:{label:'Minería y minerales',priceKey:'minerales',base:2.4},agro:{label:'Agricultura y alimentos',priceKey:'alimentos',base:1.9},uranio:{label:'Uranio',priceKey:'uranio',base:3.6},semiconductores:{label:'Semiconductores',priceKey:'tecnologia',base:5.1},tecnologia:{label:'Tecnología y manufacturas',priceKey:'tecnologia',base:5.1},industria:{label:'Industria manufacturera',priceKey:'tecnologia',base:3.4},energia:{label:'Energía eléctrica',priceKey:'gas',base:2.3}};
  let omProductive={projects:[],offers:[],log:[],seq:1,referendumResults:[],satellites:[]};
  function ensure(){if(!omProductive||typeof omProductive!=='object')omProductive={projects:[],offers:[],log:[],seq:1,referendumResults:[],satellites:[]};['projects','offers','log','referendumResults','satellites'].forEach(k=>{if(!Array.isArray(omProductive[k]))omProductive[k]=[]});if(!omProductive.seq)omProductive.seq=1;if(!Number.isFinite(Number(omProductive.aiLastOfferTurn)))omProductive.aiLastOfferTurn=-99;}
  function countryOpts(){return Object.keys(countries).sort((a,b)=>a.localeCompare(b,'es')).map(n=>`<option value="${esc(n)}">${esc(countries[n].flag||'🏳️')} ${esc(n)}</option>`).join('')}
@@ -1467,9 +1468,7 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
    omProductive.projects.forEach(p=>{if(p.status==='En construcción'&&turn>=p.dueTurn){p.status='Produciendo';addNews('Proyecto productivo operativo',p.country+' puso en marcha un proyecto de '+p.sectorLabel+'.');}});
    omProductive.projects.filter(p=>p.status==='Produciendo').forEach(p=>{
      const key=resourceMap[p.sector];if(!key)return;
-     const world=window.omWorld||(window.omWorld={stocks:{}});world.stocks=world.stocks||{};world.stocks[p.country]=world.stocks[p.country]||{petroleo:5,gas:5,alimentos:5,minerales:5,tecnologia:2,uranio:1};
-     world.stocks[p.country][key]=(Number(world.stocks[p.country][key])||0)+Math.max(0,Number(p.output)||0);
-     if(p.sector==='semiconductores'){const market=window.omCapitalMarketsV1;if(market){market.commodityStocks=market.commodityStocks||{};market.commodityStocks[p.country]=market.commodityStocks[p.country]||{crude:120,gas:100,minerals:110,lithium:65,food:160,uranium:35,chips:30};market.commodityStocks[p.country].chips=(Number(market.commodityStocks[p.country].chips)||0)+Math.max(0,Number(p.output)||0);}}
+     if(window.omMarketCore?.addStock){window.omMarketCore.addStock(p.country,key,Math.max(0,Number(p.output)||0));}else{const world=window.omWorld||(window.omWorld={stocks:{}});world.stocks=world.stocks||{};world.stocks[p.country]=world.stocks[p.country]||{petroleo:5,gas:5,alimentos:5,minerales:5,litio:2,tecnologia:2,uranio:1};world.stocks[p.country][key]=(Number(world.stocks[p.country][key])||0)+Math.max(0,Number(p.output)||0);}
      p.lastProduction=Number(p.output)||0;p.lastProductionTurn=turn;
    });
  }
@@ -1689,12 +1688,18 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
     const avg=key=>members.reduce((s,n)=>s+Number(countries[n]?.[key]??50),0)/members.length;
     const stability=(avg('stability')-50)/100;
     const approval=(avg('approval')-50)/180;
+    // La adopción plena de una moneda extranjera amplía su uso y demanda internacional.
+    // El efecto es positivo para el emisor, pero acotado para evitar apreciaciones desproporcionadas.
+    const adoptionCount=Object.entries(fx.monetaryInfluence||{}).filter(([country,link])=>
+      link&&link.level===100&&link.issuer&&fx.countryCurrency?.[link.issuer]===code&&country!==link.issuer
+    ).length;
+    const adoptionPressure=Math.min(.025,adoptionCount*.004);
     const debt=members.reduce((s,n)=>s+Number(countries[n]?.debt||0),0)/members.length;
     const budget=members.reduce((s,n)=>s+Number(countries[n]?.budget||0),0)/members.length;
     let policy=0;
     const cu=fx.unions.find(u=>u.code===code);
     if(cu){if(cu.policy==='trade')policy=.018;if(cu.policy==='stimulus')policy=-.012;if(cu.policy==='austerity')policy=.014;if(cu.policy==='integration')policy=.009;}
-    return stability*.025+approval*.008+Math.min(.018,budget/12000)-Math.min(.035,debt/12000)+policy;
+    return stability*.025+approval*.008+Math.min(.018,budget/12000)-Math.min(.035,debt/12000)+policy+adoptionPressure;
   }
   function processFX(){
     Object.keys(fx.currencies).forEach(code=>{
@@ -2093,13 +2098,19 @@ addNews('Competencia geoeconómica y mercado de defensa','Se habilitaron inversi
   return co;
  }
  function processAutonomousCompanies(nations){
-  ensure();nations.forEach((country,idx)=>{
+  ensure();
+  const MAX_NEW_PER_TURN=6; // tope global de empresas autónomas creadas por turno
+  if(!S.aiCreated||S.aiCreated.turn!==turnNo())S.aiCreated={turn:turnNo(),count:0};
+  const order=nations.map((country,idx)=>({country,idx}));
+  for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]]} // orden al azar: ningún país tiene prioridad fija
+  order.forEach(({country,idx})=>{
+   if(S.aiCreated.count>=MAX_NEW_PER_TURN)return;
    const count=S.companies.filter(c=>c.country===country).length;if(count>=18)return;
    if(S.aiCreationByCountry[country]===undefined)S.aiCreationByCountry[country]=turnNo()-Math.floor(Math.random()*4);
    const interval=country===player()?6:5;
    const elapsed=turnNo()-num(S.aiCreationByCountry[country]);
    if(elapsed>=interval&&Math.random()<(country===player()?.78:.68)){
-    const co=createAutonomousCompany(country,idx);if(co)S.aiCreationByCountry[country]=turnNo();
+    const co=createAutonomousCompany(country,idx);if(co){S.aiCreationByCountry[country]=turnNo();S.aiCreated.count++}
    }
   });
  }
@@ -2930,60 +2941,66 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  const companies=()=>S.companies||[];
  const getCompany=id=>companies().find(c=>String(c.id)===String(id));
  const resources={
-  crude:{label:'Petróleo crudo',sector:'Petróleo y gas',unit:.075},
-  gas:{label:'Gas natural',sector:'Petróleo y gas',unit:.052},
-  minerals:{label:'Minerales industriales',sector:'Minería',unit:.038},
-  lithium:{label:'Litio',sector:'Minería',unit:.095},
-  food:{label:'Alimentos',sector:'Agricultura',unit:.022},
-  uranium:{label:'Uranio',sector:'Minería',unit:.14},
-  chips:{label:'Semiconductores',sector:'Tecnología',unit:.19}
+  crude:{label:'Petróleo crudo',sector:'Petróleo y gas',quoteKey:'petroleo'},
+  gas:{label:'Gas natural',sector:'Petróleo y gas',quoteKey:'gas'},
+  minerals:{label:'Minerales industriales',sector:'Minería',quoteKey:'minerales'},
+  lithium:{label:'Litio',sector:'Minería',quoteKey:'litio'},
+  food:{label:'Alimentos',sector:'Agricultura',quoteKey:'alimentos'},
+  uranium:{label:'Uranio',sector:'Minería',quoteKey:'uranio'},
+  chips:{label:'Semiconductores',sector:'Tecnología',quoteKey:'tecnologia'}
  };
  S.commodityOrders=Array.isArray(S.commodityOrders)?S.commodityOrders:[];
  S.commodityHistory=Array.isArray(S.commodityHistory)?S.commodityHistory:[];
- // Escala comercial v2: los contratos de materias primas estaban cotizados
- // a una décima parte del valor previsto. Los pedidos pendientes se recalculan
- // con la escala nueva; las operaciones ya en tránsito reciben una migración
- // única para no perder el precio acordado ni multiplicarlo más de una vez.
- const COMMODITY_PRICE_SCALE=10;
- // Inicializar el índice antes de migrar solicitudes pendientes.
- S.internationalCommodityPrices=S.internationalCommodityPrices||{};
- Object.keys(resources).forEach(k=>{if(!(Number(S.internationalCommodityPrices[k])>0))S.internationalCommodityPrices[k]=100;});
- S.commodityOrders.forEach(o=>{
-   if(Number(o.priceScaleVersion||0)<2){
-     if(o.status==='En tránsito'){
-       if(Number.isFinite(Number(o.totalUSD)))o.totalUSD=Number(o.totalUSD)*COMMODITY_PRICE_SCALE;
-       if(Number.isFinite(Number(o.paymentAmount)))o.paymentAmount=Number(o.paymentAmount)*COMMODITY_PRICE_SCALE;
-       if(Number.isFinite(Number(o.logisticsFee)))o.logisticsFee=Number(o.logisticsFee)*COMMODITY_PRICE_SCALE;
-     }
-     o.priceScaleVersion=2;
-   }
-   // Las solicitudes aún pendientes se actualizan una sola vez al nuevo sistema de cotización.
-   if(o.status==='Pendiente'&&Number(o.priceScaleVersion||0)<3){o.unitPrice=internationalUnitPriceUSD(o.resource)/COMMODITY_PRICE_SCALE;o.priceScaleVersion=3;o.priceBasis='Precio internacional al emitir la solicitud';}
- });
+ // MOTOR ÚNICO DEL MERCADO: todas las operaciones consultan omWorld.prices,
+ // que es exactamente la tabla de cotizaciones que ve el jugador en Mercado mundial.
+ // Se conservan campos históricos como espejo de compatibilidad, nunca como fuente de precios.
+ S.commodityOrders=Array.isArray(S.commodityOrders)?S.commodityOrders:[];
+ S.commodityHistory=Array.isArray(S.commodityHistory)?S.commodityHistory:[];
  S.commodityStocks=S.commodityStocks||{};
- // Índices de precios internacionales expresados como variación porcentual frente al precio base.
- // El precio base de cada recurso se expresa en millones de USD por unidad comercial.
  S.internationalCommodityPrices=S.internationalCommodityPrices||{};
- const PRICE_INDEX_DEFAULTS={crude:100,gas:100,minerals:100,lithium:100,food:100,uranium:100,chips:100};
- Object.keys(resources).forEach(k=>{const v=num(S.internationalCommodityPrices[k]);S.internationalCommodityPrices[k]=v>0?v:PRICE_INDEX_DEFAULTS[k]||100;});
- function internationalUnitPriceUSD(resourceKey){const r=resources[resourceKey];if(!r)return 0;const index=Math.max(25,Math.min(400,num(S.internationalCommodityPrices[resourceKey])||100));return r.unit*COMMODITY_PRICE_SCALE*(index/100);}
+ const marketQuotes=()=>{
+   const w=window.omWorld||(window.omWorld={prices:{}});w.prices=w.prices||{};
+   const defaults={petroleo:4.2,gas:2.8,minerales:2.4,litio:Number(w.prices.minerales)||2.4,alimentos:1.9,uranio:3.6,tecnologia:5.1};
+   Object.entries(defaults).forEach(([k,v])=>{if(!(Number(w.prices[k])>0))w.prices[k]=v;});
+   return w.prices;
+ };
+ const quoteAliases={petroleo:'petroleo',gas:'gas',minerales:'minerales',litio:'litio',alimentos:'alimentos',tecnologia:'tecnologia',uranio:'uranio'};
+ const quoteKey=resourceKey=>resources[resourceKey]?.quoteKey||quoteAliases[resourceKey]||null;
+ function internationalUnitPriceUSD(resourceKey){const key=quoteKey(resourceKey);return key?Math.max(0,Number(marketQuotes()[key])||0):0;}
  function updateInternationalPriceIndex(){
-   // Cambios globales moderados por shocks mundiales existentes; no se inventa un precio por comprador.
-   const shocks=Array.isArray(S.globalShocks)?S.globalShocks:(Array.isArray(window.omGlobalShocks)?window.omGlobalShocks:[]);
-   Object.keys(resources).forEach(k=>{
-     let pressure=0;
-     shocks.filter(x=>x&&x.active!==false).forEach(x=>{const label=String(x.resource||x.sector||x.title||x.name||'').toLowerCase();if((k==='crude'||k==='gas')&&/petróleo|petroleo|gas|energ/.test(label))pressure+=2.5;else if((k==='food')&&/alimento|agric|sequía|sequia/.test(label))pressure+=2.5;else if((k==='lithium'||k==='minerals'||k==='uranium')&&/minería|mineral|litio|uranio/.test(label))pressure+=2;else if((k==='chips')&&/semiconductor|tecnolog/.test(label))pressure+=2;});
-     const old=num(S.internationalCommodityPrices[k])||100;
-     // Reversión lenta al nivel base y volatilidad pequeña, con topes para evitar saltos absurdos.
-     const drift=(100-old)*0.012 + pressure + (Math.random()-0.5)*0.8;
-     S.internationalCommodityPrices[k]=Math.max(25,Math.min(400,old+drift));
-   });
+   // Compatibilidad con partidas antiguas: el índice refleja la cotización compartida.
+   // No genera variaciones independientes ni inventa un segundo precio.
+   Object.entries(resources).forEach(([k])=>{S.internationalCommodityPrices[k]=internationalUnitPriceUSD(k);});
  }
+ window.omMarketCore={
+   quote:internationalUnitPriceUSD,
+   total:(resourceKey,qty)=>internationalUnitPriceUSD(resourceKey)*Math.max(0,Number(qty)||0),
+   stock:sharedStockView,
+   addStock:(c,resourceKey,qty)=>{const key=resources[resourceKey]?resourceKey:(Object.entries(stockAliases).find(([legacy])=>legacy===resourceKey)?.[1]);if(!key)return 0;const st=stockFor(c);st[key]=num(st[key])+Math.max(0,num(qty));return st[key];},
+   quoteKey,
+   snapshot:resourceKey=>({resource:resourceKey,quoteKey:quoteKey(resourceKey),unitPrice:internationalUnitPriceUSD(resourceKey),currency:'USD',priceBasis:'Cotización visible de Mercado mundial'}),
+   prices:marketQuotes
+ };
+ migrateLegacyStocks();
+ updateInternationalPriceIndex();
+ // Actualizar únicamente solicitudes pendientes creadas por versiones con escalas paralelas.
+ // Los acuerdos aceptados o en tránsito conservan el precio contractual original.
+ S.commodityOrders.forEach(o=>{
+   if(o.status==='Pendiente'&&Number(o.priceScaleVersion||0)<6){
+     const benchmark=internationalUnitPriceUSD(o.resource);
+     o.internationalUnitPriceUSD=benchmark;o.unitPrice=benchmark;
+     o.quoteKey=quoteKey(o.resource);o.priceScaleVersion=6;
+     o.priceBasis='Cotización única visible de Mercado mundial';
+   }
+ });
  S.semiconductorInventoryVersion=S.semiconductorInventoryVersion||1;
  S.lastAiCommodityTurn=Number.isFinite(Number(S.lastAiCommodityTurn))?Number(S.lastAiCommodityTurn):-1;
  S.commoditySeq=num(S.commoditySeq)||1;
  function log(title,text){const row={id:S.commoditySeq++,turn:turnNo(),date:$('date')?.textContent||('Turno '+turnNo()),title,text};S.commodityHistory.unshift(row);S.commodityHistory=S.commodityHistory.slice(0,100);S.corporateLog=S.corporateLog||[];S.corporateLog.unshift({turn:turnNo(),title,text});S.corporateLog=S.corporateLog.slice(0,100);if(typeof addNews==='function'&&[country()].includes(country()))addNews(title,text);}
  function stockFor(c){if(!S.commodityStocks[c])S.commodityStocks[c]={crude:120,gas:100,minerals:110,lithium:65,food:160,uranium:35,chips:30};return S.commodityStocks[c]}
+ const stockAliases={petroleo:'crude',gas:'gas',minerales:'minerals',litio:'lithium',alimentos:'food',uranio:'uranium',tecnologia:'chips'};
+ function sharedStockView(c){const base=stockFor(c),view={};Object.entries(stockAliases).forEach(([legacy,key])=>Object.defineProperty(view,legacy,{enumerable:true,configurable:false,get:()=>num(base[key]),set:v=>{base[key]=Math.max(0,num(v));}}));return view;}
+ function migrateLegacyStocks(){if(Number(S.unifiedInventoryVersion)>=1)return;const old=window.omWorld?.stocks||{};Object.entries(old).forEach(([c,legacy])=>{const target=stockFor(c);Object.entries(stockAliases).forEach(([legacyKey,commodityKey])=>{const amount=num(legacy?.[legacyKey]);if(amount>0)target[commodityKey]=num(target[commodityKey])+amount;});});S.unifiedInventoryVersion=1;}
  function currencyOf(c){return fx.countryCurrency?.[c]||({Argentina:'ARS',Brasil:'BRL',China:'CNY','Estados Unidos':'USD',Alemania:'EUR',Francia:'EUR',India:'INR',Rusia:'RUB',Japón:'JPY'}[c]||'USD')}
  function companyCurrencyOptions(){return Object.entries(fx.currencies||{}).filter(([k])=>!k.startsWith('N')).map(([k,v])=>`<option value="${esc(k)}">${esc(k)} · ${esc(v.name||k)}</option>`).join('')}
  function logisticsCompanies(c){return companies().filter(x=>x.country===c&&/logística|transporte|comercio|distribución/i.test(String(x.sector||'')+' '+String(x.name||'')))}
@@ -2993,7 +3010,7 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  function countryCurrencyList(){return Object.keys(fx.currencies||{}).filter(k=>!k.startsWith('N'))}
  function addOrder({buyer,seller,resource,qty,currency,logisticsId,proposedLogisticsId,origin,status='Pendiente',dueTurn=turnNo()+1}){
   const benchmark=internationalUnitPriceUSD(resource);
-  const o={id:'CMD'+Date.now()+Math.floor(Math.random()*99999),buyer,seller,resource,qty,currency,logisticsId:logisticsId||null,proposedLogisticsId:proposedLogisticsId||null,origin:origin||'Solicitud comercial',status,createdTurn:turnNo(),dueTurn,unitPrice:benchmark/COMMODITY_PRICE_SCALE,internationalUnitPriceUSD:benchmark,priceBasis:'Precio internacional al emitir la solicitud',priceScaleVersion:3,lastUpdateTurn:turnNo()};S.commodityOrders.unshift(o);return o;
+  const o={id:'CMD'+Date.now()+Math.floor(Math.random()*99999),buyer,seller,resource,qty,currency,logisticsId:logisticsId||null,proposedLogisticsId:proposedLogisticsId||null,origin:origin||'Solicitud comercial',status,createdTurn:turnNo(),dueTurn,unitPrice:benchmark,internationalUnitPriceUSD:benchmark,quoteKey:quoteKey(resource),priceBasis:'Cotización única visible de Mercado mundial',priceScaleVersion:6,lastUpdateTurn:turnNo()};S.commodityOrders.unshift(o);return o;
  }
  function aiCommodityDemand(){
   if(S.lastAiCommodityTurn===turnNo()||turnNo()-S.lastAiCommodityTurn<2)return;
@@ -3008,7 +3025,7 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
   const order=addOrder({buyer,seller,resource,qty,currency:buyerCurrency,proposedLogisticsId:preferred.id,origin:'Demanda autónoma de '+buyer});
   order.aiInitiated=true;log('Solicitud internacional de materias primas',buyer+' solicita a '+seller+' la compra de '+qty+' unidades de '+resources[resource].label+'. Propone pagar en '+buyerCurrency+' y ofrece a '+preferred.name+' como operador logístico.');
  }
- function priceUSD(o){return num(o.internationalUnitPriceUSD)>0?num(o.qty)*num(o.internationalUnitPriceUSD):num(o.qty)*num(o.unitPrice)*COMMODITY_PRICE_SCALE}
+ function priceUSD(o){const unit=num(o.internationalUnitPriceUSD)>0?num(o.internationalUnitPriceUSD):num(o.unitPrice)>0?num(o.unitPrice):internationalUnitPriceUSD(o.resource);return num(o.qty)*unit}
  function convertValue(usd,currency){const c=fx.currencies?.[currency];return c?usd*num(c.perUSD):usd}
  function decide(id,accept){const o=S.commodityOrders.find(x=>x.id===id&&x.status==='Pendiente');if(!o)return;const sellerStock=stockFor(o.seller),sellerIsPlayer=o.seller===country(),buyerIsPlayer=o.buyer===country();if(!accept){o.status='Rechazada';o.lastUpdateTurn=turnNo();log('Oferta de materias primas rechazada',(sellerIsPlayer?o.buyer:o.seller)+' rechazó la operación de '+resources[o.resource].label+' con '+o.qty+' unidades.');persist();renderIfOpen();return;}
   if(sellerIsPlayer&&num(sellerStock[o.resource])<o.qty){return notify('No hay inventario suficiente para cumplir la entrega.');}
@@ -3037,9 +3054,9 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  function monthly(){if(S.lastCommodityProcessTurn===turnNo())return;S.lastCommodityProcessTurn=turnNo();updateInternationalPriceIndex();resolveAIReplies();S.commodityOrders.filter(o=>o.status==='En tránsito'&&num(o.dueTurn)<=turnNo()).forEach(deliver);if(turnNo()%3===0){countriesList().forEach(c=>{const st=stockFor(c);Object.keys(resources).forEach(k=>{st[k]=Math.min(500,num(st[k])+ (k==='crude'||k==='gas'?4:k==='food'?7:3));});});}aiCommodityDemand();persist();renderIfOpen();}
  function persist(){try{if(typeof saveGame==='function')saveGame(true);else localStorage.setItem('omCapitalMarketsV1',JSON.stringify(S));}catch(e){}}
  function logisticsOptions(o){const local=logisticsCompanies(o.seller),buyerLocal=o.buyer===country()?logisticsCompanies(o.buyer):[],proposed=getCompany(o.proposedLogisticsId);const choices=[...local,...buyerLocal];if(proposed&&!choices.some(c=>c.id===proposed.id))choices.push(proposed);const unique=[...new Map(choices.map(c=>[String(c.id),c])).values()];return unique.map(c=>`<option value="${esc(c.id)}" ${c.id===o.proposedLogisticsId?'selected':''}>${esc(c.name)} (${esc(c.country)})</option>`).join('')||'<option value="">Sin empresa logística disponible</option>';}
- function pendingHtml(){return S.commodityOrders.filter(o=>o.status==='Pendiente'&&(o.seller===country()||o.buyer===country())).map(o=>{const buyerSide=o.buyer===country(),other=buyerSide?o.seller:o.buyer;return `<div class="news"><small>SOLICITUD ${buyerSide?'DE COMPRA':'DE VENTA'} · ${esc(o.origin)}</small><p><b>${esc(o.buyer)}</b> solicita a <b>${esc(o.seller)}</b> ${o.qty} unidades de ${esc(resources[o.resource].label)}.</p><p>Precio internacional: USD ${money(num(o.internationalUnitPriceUSD)||num(o.unitPrice)*COMMODITY_PRICE_SCALE)} millones por unidad · Cantidad: ${money(o.qty)} · Total: <b>USD ${money(priceUSD(o))} millones</b>. Moneda de liquidación: <b>${esc(o.currency)}</b>.</p><div class="field"><label>Empresa logística encargada</label><select id="omCommodityLogistics_${esc(o.id)}">${logisticsOptions(o)}</select></div><div class="field"><label>Moneda de liquidación</label><select id="omCommodityCurrency_${esc(o.id)}">${companyCurrencyOptions().replace('value="'+esc(o.currency)+'"','value="'+esc(o.currency)+'" selected')}</select></div>${!buyerSide?`<button class="primary" onclick="omCommodityDecide('${esc(o.id)}',true)">Aceptar compra</button>`:`<button class="primary" onclick="omCommodityDecide('${esc(o.id)}',true)">Confirmar compra</button>`} <button onclick="omCommodityDecide('${esc(o.id)}',false)">Rechazar</button></div>`}).join('')||'<p class="muted">No hay solicitudes pendientes. La IA puede enviar propuestas al avanzar los meses.</p>';}
- function renderPanel(){const me=country(),st=stockFor(me),curr=currencyOf(me),localLog=logisticsCompanies(me),others=countriesList().filter(c=>c!==me);const stocks=Object.entries(resources).map(([k,v])=>`<div class="mini"><span>${esc(v.label)}</span><strong>${money(st[k]||0)} unidades</strong></div>`).join('');const benchmarks=Object.entries(resources).map(([k,v])=>`<div class="mini"><span>${esc(v.label)} · precio internacional</span><strong>USD ${money(internationalUnitPriceUSD(k))} M / unidad</strong><small>Índice ${money(S.internationalCommodityPrices[k]||100)} · base 100</small></div>`).join('');const companiesOptions=localLog.map(c=>`<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.sector)}</option>`).join('');const orders=S.commodityOrders.filter(o=>o.seller===me||o.buyer===me).slice(0,15).map(o=>`<div class="om-row"><b>${esc(o.buyer)} → ${esc(o.seller)}</b><span>${esc(resources[o.resource]?.label||o.resource)} · ${o.qty} unidades</span><small>${esc(o.status)} · ${esc(o.currency)} · ${o.logisticsId?esc(getCompany(o.logisticsId)?.name||'Empresa logística'): 'Logística pendiente'}</small></div>`).join('')||'<p class="muted">Todavía no hay operaciones.</p>';
-  return `<div class="om-hero"><div><span class="om-kicker">MERCADO GLOBAL · MATERIAS PRIMAS</span><h2>Comercio internacional de recursos</h2><p>Los gobiernos y las empresas de IA generan solicitudes de compra. Elegí si aceptás, en qué moneda cobrás y qué compañía logística transporta la carga. Las operaciones mueven inventarios, ingresos y cotizaciones bursátiles.</p></div><div class="om-hero-badge">⛴️ Mercado de commodities</div></div><h3>Inventario comercial de ${esc(me)}</h3><div class="mini-grid">${stocks}</div><h3>Precios internacionales de referencia</h3><p class="muted">Cada solicitud se calcula con el precio internacional vigente por unidad multiplicado por la cantidad solicitada. El precio queda fijado al emitir la solicitud; la moneda elegida solo convierte el importe, no altera el valor internacional.</p><div class="mini-grid">${benchmarks}</div><h3>Solicitudes de la IA y propuestas pendientes</h3>${pendingHtml()}<h3>Enviar una oferta de exportación</h3><div class="two"><div class="field"><label>País comprador</label><select id="omCommodityBuyer">${others.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div><div class="field"><label>Materia prima</label><select id="omCommodityResource">${Object.entries(resources).map(([k,v])=>`<option value="${k}">${esc(v.label)}</option>`).join('')}</select></div><div class="field"><label>Cantidad</label><input id="omCommodityQty" type="number" min="1" max="500" value="50"></div><div class="field"><label>Moneda solicitada</label><select id="omCommodityCurrency">${companyCurrencyOptions()}</select></div><div class="field"><label>Empresa logística local</label><select id="omCommodityLogistics">${companiesOptions||'<option value="">No hay empresa local</option>'}</select></div></div><button class="primary" onclick="omCommodityOffer()">Enviar oferta de exportación</button><h3>Operaciones comerciales recientes</h3><div class="om-list">${orders}</div><h3>Historial de comercio</h3>${S.commodityHistory.slice(0,12).map(x=>`<div class="news"><small>${esc(x.date)} · ${esc(x.title)}</small><p>${esc(x.text)}</p></div>`).join('')||'<p class="muted">El historial aparecerá cuando se generen operaciones.</p>'}`;
+ function pendingHtml(){return S.commodityOrders.filter(o=>o.status==='Pendiente'&&(o.seller===country()||o.buyer===country())).map(o=>{const buyerSide=o.buyer===country(),other=buyerSide?o.seller:o.buyer;return `<div class="news"><small>SOLICITUD ${buyerSide?'DE COMPRA':'DE VENTA'} · ${esc(o.origin)}</small><p><b>${esc(o.buyer)}</b> solicita a <b>${esc(o.seller)}</b> ${o.qty} unidades de ${esc(resources[o.resource].label)}.</p><p>Precio internacional: USD ${money(num(o.internationalUnitPriceUSD)||num(o.unitPrice))} millones por unidad · Cantidad: ${money(o.qty)} · Total: <b>USD ${money(priceUSD(o))} millones</b>. Moneda de liquidación: <b>${esc(o.currency)}</b>.</p><div class="field"><label>Empresa logística encargada</label><select id="omCommodityLogistics_${esc(o.id)}">${logisticsOptions(o)}</select></div><div class="field"><label>Moneda de liquidación</label><select id="omCommodityCurrency_${esc(o.id)}">${companyCurrencyOptions().replace('value="'+esc(o.currency)+'"','value="'+esc(o.currency)+'" selected')}</select></div>${!buyerSide?`<button class="primary" onclick="omCommodityDecide('${esc(o.id)}',true)">Aceptar compra</button>`:`<button class="primary" onclick="omCommodityDecide('${esc(o.id)}',true)">Confirmar compra</button>`} <button onclick="omCommodityDecide('${esc(o.id)}',false)">Rechazar</button></div>`}).join('')||'<p class="muted">No hay solicitudes pendientes. La IA puede enviar propuestas al avanzar los meses.</p>';}
+ function renderPanel(){const me=country(),st=stockFor(me),curr=currencyOf(me),localLog=logisticsCompanies(me),others=countriesList().filter(c=>c!==me);const stocks=Object.entries(resources).map(([k,v])=>`<div class="mini"><span>${esc(v.label)}</span><strong>${money(st[k]||0)} unidades</strong></div>`).join('');const benchmarks='';const companiesOptions=localLog.map(c=>`<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.sector)}</option>`).join('');const orders=S.commodityOrders.filter(o=>o.seller===me||o.buyer===me).slice(0,15).map(o=>`<div class="om-row"><b>${esc(o.buyer)} → ${esc(o.seller)}</b><span>${esc(resources[o.resource]?.label||o.resource)} · ${o.qty} unidades</span><small>${esc(o.status)} · ${esc(o.currency)} · ${o.logisticsId?esc(getCompany(o.logisticsId)?.name||'Empresa logística'): 'Logística pendiente'}</small></div>`).join('')||'<p class="muted">Todavía no hay operaciones.</p>';
+  return `<div class="om-hero"><div><span class="om-kicker">MERCADO GLOBAL · MATERIAS PRIMAS</span><h2>Comercio internacional de recursos</h2><p>Los gobiernos y las empresas de IA generan solicitudes de compra. Elegí si aceptás, en qué moneda cobrás y qué compañía logística transporta la carga. Las operaciones mueven inventarios, ingresos y cotizaciones bursátiles.</p></div><div class="om-hero-badge">⛴️ Mercado de commodities</div></div><h3>Inventario comercial de ${esc(me)}</h3><div class="mini-grid">${stocks}</div><p class="muted">Las cotizaciones oficiales son las que aparecen arriba, en este mismo Mercado mundial. Las compras directas, ofertas, solicitudes de la IA y contratos logísticos consultan el mismo motor de precios. Cada contrato conserva la cotización vigente al momento de emitirse.</p><h3>Solicitudes de la IA y propuestas pendientes</h3>${pendingHtml()}<h3>Enviar una oferta de exportación</h3><div class="two"><div class="field"><label>País comprador</label><select id="omCommodityBuyer">${others.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div><div class="field"><label>Materia prima</label><select id="omCommodityResource">${Object.entries(resources).map(([k,v])=>`<option value="${k}">${esc(v.label)}</option>`).join('')}</select></div><div class="field"><label>Cantidad</label><input id="omCommodityQty" type="number" min="1" max="500" value="50"></div><div class="field"><label>Moneda solicitada</label><select id="omCommodityCurrency">${companyCurrencyOptions()}</select></div><div class="field"><label>Empresa logística local</label><select id="omCommodityLogistics">${companiesOptions||'<option value="">No hay empresa local</option>'}</select></div></div><button class="primary" onclick="omCommodityOffer()">Enviar oferta de exportación</button><h3>Operaciones comerciales recientes</h3><div class="om-list">${orders}</div><h3>Historial de comercio</h3>${S.commodityHistory.slice(0,12).map(x=>`<div class="news"><small>${esc(x.date)} · ${esc(x.title)}</small><p>${esc(x.text)}</p></div>`).join('')||'<p class="muted">El historial aparecerá cuando se generen operaciones.</p>'}`;
  }
  window.omCommodityDecide=function(id,accept){const o=S.commodityOrders.find(x=>x.id===id);if(!o)return;const currency=$('omCommodityCurrency_'+id)?.value;if(currency)o.currency=currency;decide(id,accept);};
  window.omCommodityOffer=function(){const buyer=$('omCommodityBuyer')?.value,resource=$('omCommodityResource')?.value,qty=Math.max(1,Math.min(500,Math.floor(num($('omCommodityQty')?.value)||1))),currency=$('omCommodityCurrency')?.value||currencyOf(buyer),logisticsId=$('omCommodityLogistics')?.value;if(!buyer||!resources[resource])return notify('Completá los datos de la oferta.');if(num(stockFor(country())[resource])<qty)return notify('No hay inventario suficiente para ofrecer esa cantidad.');const o=addOrder({buyer,seller:country(),resource,qty,currency,logisticsId,origin:'Oferta de exportación del gobierno'});o.aiInitiated=false;log('Oferta de exportación enviada',country()+' ofreció a '+buyer+' '+qty+' unidades de '+resources[resource].label+', con pago en '+currency+'.');persist();renderIfOpen();notify('Oferta enviada. La IA responderá al avanzar el mes.');};
@@ -3051,7 +3068,7 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  const next=$('nextTurn');if(next){const prior=next.onclick;next.onclick=function(...args){const result=prior?.apply(this,args);monthly();persist();return result;};}
  const oldCollect=window.collectGame;if(typeof oldCollect==='function')window.collectGame=function(){const d=oldCollect.apply(this,arguments);d.omCapitalMarketsV1=JSON.parse(JSON.stringify(S));delete d.omCapitalMarkets;/* era una copia idéntica de V1: se guardaba dos veces y duplicaba el tamaño de la partida */return d;};
  const oldRestore=window.restoreGame;if(typeof oldRestore==='function')window.restoreGame=function(d){oldRestore.apply(this,arguments);if(d?.omCapitalMarketsV1){Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,JSON.parse(JSON.stringify(d.omCapitalMarketsV1)));S.commodityOrders=S.commodityOrders||[];S.commodityHistory=S.commodityHistory||[];S.commodityStocks=S.commodityStocks||{};}};
- window.omCommodityMarket={state:()=>JSON.parse(JSON.stringify({orders:S.commodityOrders,stocks:S.commodityStocks,history:S.commodityHistory,internationalPrices:S.internationalCommodityPrices})),monthly,render:renderPanel,unitPrice:internationalUnitPriceUSD,totalPrice:(resource,qty)=>internationalUnitPriceUSD(resource)*num(qty)};
+ window.omCommodityMarket={state:()=>JSON.parse(JSON.stringify({orders:S.commodityOrders,stocks:S.commodityStocks,history:S.commodityHistory,internationalPrices:S.internationalCommodityPrices})),monthly,render:renderPanel,unitPrice:internationalUnitPriceUSD,totalPrice:(resource,qty)=>window.omMarketCore.total(resource,qty),priceSource:'omWorld.prices'};
 })();
 
 </script>
@@ -3455,41 +3472,92 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
  // Empleo: la expansión industrial, los proyectos productivos y el capital extranjero
  // reducen gradualmente el desempleo; una contracción industrial lo eleva.
  const LAB=window.omEmploymentV2||(window.omEmploymentV2={lastTurn:{},lastIndex:{}});
- function updateEmployment(){if(!window.omBancoCentralState||!S)return;const W=window.omBancoCentralState;W.economies=W.economies||{};let names=[];try{names=Object.keys(countries||{}).filter(x=>x!=='ONU'&&x!=='Mundo')}catch(e){names=[me()]};names.forEach(name=>{let x;try{x=typeof cstate==='function'?cstate(name):null}catch(e){}if(!x)return;const e=W.economies[name]||(W.economies[name]={inflation:4,rate:8,unemployment:7.5,history:[]});if(LAB.lastTurn[name]===t())return;const idx=n(x.industrialIndex)||100,prev=Number.isFinite(Number(LAB.lastIndex[name]))?Number(LAB.lastIndex[name]):idx;const industrialGrowth=idx-prev;const activeProjects=(x.projects||[]).length;let productiveProjects=[];try{productiveProjects=typeof omProductive!=='undefined'?(omProductive.projects||[]).filter(p=>p.country===name&&p.status==='Produciendo'):[]}catch(e){}const foreignCapital=productiveProjects.filter(p=>p.investor&&p.investor!==name).reduce((a,p)=>a+Math.max(0,n(p.amount)),0);const productiveIndexGrowth=productiveProjects.length*.08;if(productiveIndexGrowth)x.industrialIndex=clamp(idx+productiveIndexGrowth,40,180);const effectiveIndex=n(x.industrialIndex)||idx;const recentSignals=Object.values(S.sectorSignals||{}).filter(z=>z.country===name&&t()-n(z.lastTurn)<=2);const recentInvestment=recentSignals.reduce((a,z)=>a+(Array.isArray(z.events)?z.events.filter(ev=>t()-n(ev.turn)<=2).reduce((q,ev)=>q+Math.max(0,n(ev.amount)),0):0),0);const foreignDeals=(S.companyLog||[]).filter(z=>z.country===name&&t()-n(z.turn)<=2&&/investment|corporate|joint|merger/i.test(String(z.kind||''))).reduce((a,z)=>a+Math.max(0,n(z.amount)),0);const inflow=Math.min(8,recentInvestment*.35+foreignDeals*.5+foreignCapital*.025);const jobsEffect=Math.max(0,industrialGrowth)*.035+activeProjects*.018+productiveProjects.length*.025+Math.min(.18,foreignCapital*.01)+inflow*.012;const contraction=Math.max(0,-industrialGrowth)*.04;const delta=clamp(.012+contraction-jobsEffect,-.22,.16);e.unemployment=clamp(n(e.unemployment||7.5)+delta,.5,35);x.employment=clamp(n(x.employment||100)+Math.max(-.4,industrialGrowth*.3+activeProjects*.05+inflow*.03),40,180);LAB.lastTurn[name]=t();LAB.lastIndex[name]=effectiveIndex;if(name===me()&&Math.abs(delta)>.015)news('Mercado laboral',`El desempleo de ${name} ${delta<0?'bajó':'subió'} ${Math.abs(delta).toFixed(2)} puntos y se ubicó en ${e.unemployment.toFixed(2)}%. Variación asociada a actividad industrial, proyectos e inversión reciente.`);});}
+ function updateEmployment(){if(!window.omBancoCentralState||!S)return;const W=window.omBancoCentralState;W.economies=W.economies||{};let names=[];try{names=Object.keys(countries||{}).filter(x=>x!=='ONU'&&x!=='Mundo')}catch(e){names=[me()]};names.forEach(name=>{let x;try{x=typeof cstate==='function'?cstate(name):null}catch(e){}if(!x)return;const e=W.economies[name]||(W.economies[name]={inflation:4,rate:8,unemployment:7.5,history:[]});if(LAB.lastTurn[name]===t())return;const idx=n(x.industrialIndex)||100,prev=Number.isFinite(Number(LAB.lastIndex[name]))?Number(LAB.lastIndex[name]):idx;const industrialGrowth=idx-prev;const activeProjects=(x.projects||[]).length;let productiveProjects=[];try{productiveProjects=typeof omProductive!=='undefined'?(omProductive.projects||[]).filter(p=>p.country===name&&p.status==='Produciendo'):[]}catch(e){}const foreignCapital=productiveProjects.filter(p=>p.investor&&p.investor!==name).reduce((a,p)=>a+Math.max(0,n(p.amount)),0);const productiveIndexGrowth=productiveProjects.length*.08;if(productiveIndexGrowth)x.industrialIndex=clamp(idx+productiveIndexGrowth,40,180);const effectiveIndex=n(x.industrialIndex)||idx;const recentSignals=Object.values(S.sectorSignals||{}).filter(z=>z.country===name&&t()-n(z.lastTurn)<=2);const recentInvestment=recentSignals.reduce((a,z)=>a+(Array.isArray(z.events)?z.events.filter(ev=>t()-n(ev.turn)<=2).reduce((q,ev)=>q+Math.max(0,n(ev.amount)),0):0),0);const recentCompanyEvents=(S.companyLog||[]).filter(z=>z.country===name&&t()-n(z.turn)<=2);const foreignDeals=recentCompanyEvents.filter(z=>/investment|corporate|joint|merger|sector-investment|company-created/i.test(String(z.kind||''))).reduce((a,z)=>a+Math.max(0,n(z.amount)),0);const recentExpansions=recentCompanyEvents.filter(z=>/company-created|sector-investment|investment|corporate|joint|merger/i.test(String(z.kind||''))).length;const infraProjects=(()=>{try{return (window.omExpansion2026API?.state?.().projects||[]).filter(p=>p.status==='active'&&(p.a===name||p.b===name)).length}catch(e){return 0}})();const inflow=Math.min(8,recentInvestment*.35+foreignDeals*.5+foreignCapital*.025);const jobsEffect=Math.max(0,industrialGrowth)*.035+activeProjects*.018+infraProjects*.012+productiveProjects.length*.025+recentExpansions*.008+Math.min(.18,foreignCapital*.01)+inflow*.012;const contraction=Math.max(0,-industrialGrowth)*.04;const delta=clamp(.012+contraction-jobsEffect,-.22,.16);e.unemployment=clamp(n(e.unemployment||7.5)+delta,.5,35);x.employment=clamp(n(x.employment||100)+Math.max(-.4,industrialGrowth*.3+activeProjects*.05+inflow*.03),40,180);LAB.lastTurn[name]=t();LAB.lastIndex[name]=effectiveIndex;if(name===me()&&Math.abs(delta)>.015)news('Mercado laboral',`El desempleo de ${name} ${delta<0?'bajó':'subió'} ${Math.abs(delta).toFixed(2)} puntos y se ubicó en ${e.unemployment.toFixed(2)}%. Variación asociada a actividad industrial, proyectos e inversión reciente.`);});}
  // Balances: cada compañía publica ingresos, costos, resultado, activos, deuda y plantilla.
- function updateCompanyAccounts(){if(!S||!Array.isArray(S.companies))return;const turnNow=t();S.companies.forEach(c=>{c.accounts=c.accounts||{history:[],lastTurn:-1};if(c.accounts.lastTurn===turnNow)return;const capital=Math.max(.1,n(c.capital)||n(c.marketCap)||1);let logisticsRevenue=0,logisticsContracts=0;const delivered=(S.commodityOrders||[]).filter(o=>o.status==='Entregada'&&n(o.deliveredTurn)===turnNow&&String(o.logisticsId)===String(c.id));delivered.forEach(o=>{logisticsRevenue+=n(o.logisticsFee)||n(o.totalUSD)*.06;logisticsContracts++});let contractRevenue=0;const activeContracts=(typeof S.trade!=='undefined'?S.trade:[]);(activeContracts||[]).filter(z=>z.status==='active'&&z.kind==='export'&&(z.from===c.country||z.to===c.country)&&/logística|transporte/i.test(c.sector+' '+c.name)).forEach(z=>{contractRevenue+=n(z.monthlyValue)*.22;logisticsContracts++});
-   const baseRevenue=capital*(c.sector==='Finanzas'?.032:c.sector==='Tecnología'?.029:c.sector==='Petróleo y gas'||c.sector==='Minería'?.027:.023);const grossRevenue=baseRevenue+logisticsRevenue+contractRevenue;const sanctionLevel=n(UN.sanctions[c.country]);const revenue=grossRevenue*Math.max(.55,1-.055*sanctionLevel);const costRate=c.sector==='Tecnología'?.69:c.sector==='Finanzas'?.62:c.sector==='Transporte y logística'?.74:.78;const operatingCosts=baseRevenue*costRate+(logisticsRevenue+contractRevenue)*.58+grossRevenue*sanctionLevel*.012;const netProfit=revenue-operatingCosts;const taxes=Math.max(0,netProfit)*.12;const afterTax=netProfit-taxes;const assets=capital*1.35+Math.max(0,afterTax)*2;const liabilities=capital*.42;const debt=capital*.18;const employees=Math.max(40,Math.round(capital*(c.sector==='Tecnología'?850:c.sector==='Transporte y logística'?1250:c.sector==='Finanzas'?420:1050)));
-   const prev=n(c.accounts.netProfit);const perf=clamp((afterTax/Math.max(.5,capital))*38,-5,5);c.lastPrice=n(c.price)||n(c.lastPrice);c.price=Math.max(.1,c.price*(1+perf/100));c.change=((c.price-c.lastPrice)/Math.max(.1,c.lastPrice))*100;c.marketCap=c.price*n(c.sharesOutstanding)/1e9;c.profit=afterTax;c.accounts={lastTurn:turnNow,period:date(),revenue,sanctionLevel,operatingCosts,netProfit,afterTax,taxes,assets,liabilities,equity:assets-liabilities,debt,employees,logisticsRevenue,logisticsContracts,profitChange:prev?((afterTax-prev)/Math.abs(prev))*100:0,history:c.accounts.history||[]};c.accounts.history.unshift({turn:turnNow,date:date(),revenue,operatingCosts,netProfit:afterTax,taxes,sanctionLevel,assets,liabilities,equity:assets-liabilities,debt,employees,logisticsRevenue,logisticsContracts});c.accounts.history=c.accounts.history.slice(0,6);
-  });}
- // Cierre semestral: archiva resultados antes de depurar el detalle mensual.
- function closeSemiannualAccounts(){
+ // Balances semestrales: cada 6 turnos (6 meses) cada compañía publica un balance nuevo que REEMPLAZA al anterior (no se guarda historial mensual).
+ function updateCompanyAccounts(){
   if(!S||!Array.isArray(S.companies))return;
+  const turnNow=t(),isClose=turnNow>0&&turnNow%6===0,fromTurn=Math.max(0,turnNow-5);
+  const logiByCo={};(S.commodityOrders||[]).forEach(o=>{if(o.status==='Entregada'&&n(o.deliveredTurn)>=fromTurn&&n(o.deliveredTurn)<=turnNow&&o.logisticsId!=null){const k=String(o.logisticsId);const e=logiByCo[k]||(logiByCo[k]={rev:0,cnt:0});e.rev+=n(o.logisticsFee)||n(o.totalUSD)*.06;e.cnt++}});
+  const exportContracts=(typeof S.trade!=='undefined'&&Array.isArray(S.trade))?S.trade.filter(z=>z.status==='active'&&z.kind==='export'):[];
+  S.companies.forEach(c=>{
+   if(c.accounts&&c.accounts.history)delete c.accounts.history;
+   const opening=!c.accounts||c.accounts.lastTurn===undefined||n(c.accounts.lastTurn)<0;
+   if(!(isClose||opening)||(c.accounts&&c.accounts.lastTurn===turnNow))return;
+   const M=6,capital=Math.max(.1,n(c.capital)||n(c.marketCap)||1);
+   const lg=logiByCo[String(c.id)]||{rev:0,cnt:0};
+   const myContracts=/logística|transporte/i.test(c.sector+' '+c.name)?exportContracts.filter(z=>z.from===c.country||z.to===c.country):[];
+   const contractRevenue=myContracts.reduce((x,z)=>x+n(z.monthlyValue),0)*.22*M;
+   const baseRevenue=capital*(c.sector==='Finanzas'?.032:c.sector==='Tecnología'?.029:c.sector==='Petróleo y gas'||c.sector==='Minería'?.027:.023)*M;
+   const grossRevenue=baseRevenue+lg.rev+contractRevenue;
+   const sanctionLevel=n(UN.sanctions[c.country]);
+   const revenue=grossRevenue*Math.max(.55,1-.055*sanctionLevel);
+   const costRate=c.sector==='Tecnología'?.69:c.sector==='Finanzas'?.62:c.sector==='Transporte y logística'?.74:.78;
+   // Riesgo operativo del semestre (±20 % sobre los costos): permite pérdidas aun sin sanciones.
+   const shock=isClose?(Math.random()+Math.random()+Math.random()-1.5)*.4:0;
+   const operatingCosts=(baseRevenue*costRate+(lg.rev+contractRevenue)*.58)*(1+shock)+grossRevenue*sanctionLevel*.012;
+   const netProfit=revenue-operatingCosts,taxes=Math.max(0,netProfit)*.12,afterTax=netProfit-taxes;
+   const prevDebt=c.debt===undefined?capital*.18:n(c.debt);
+   const debt=afterTax<0?prevDebt-afterTax:Math.max(capital*.05,prevDebt-afterTax*.6);
+   const assets=capital*1.35+Math.max(0,afterTax)*2,liabilities=capital*.24+debt;
+   const employees=Math.max(40,Math.round(capital*(c.sector==='Tecnología'?850:c.sector==='Transporte y logística'?1250:c.sector==='Finanzas'?420:1050)));
+   const prev=n(c.accounts&&c.accounts.afterTax);
+   if(isClose){
+    c.lossStreak=afterTax<0?n(c.lossStreak)+1:0;
+    const perf=clamp((afterTax/Math.max(.5,capital))*38,-15,15);
+    c.lastPrice=n(c.price)||n(c.lastPrice);c.price=Math.max(.1,c.price*(1+perf/100));c.change=((c.price-c.lastPrice)/Math.max(.1,c.lastPrice))*100;c.marketCap=c.price*n(c.sharesOutstanding)/1e9;
+   }
+   c.debt=debt;c.profit=afterTax;
+   c.accounts={lastTurn:turnNow,fromTurn,period:date(),months:M,closed:isClose,revenue,sanctionLevel,operatingCosts,netProfit,afterTax,taxes,assets,liabilities,equity:assets-liabilities,debt,employees,logisticsRevenue:lg.rev,logisticsContracts:lg.cnt+myContracts.length,profitChange:prev?((afterTax-prev)/Math.abs(prev))*100:0};
+  });
+ }
+ // Quiebras: se evalúan al cerrar cada semestre, con los balances nuevos. Quiebra la empresa con 2 semestres seguidos en pérdida o con patrimonio negativo.
+ function processBankruptcies(turnNow){
+  const failed=[];
+  const perCountry={};S.companies.forEach(c=>{perCountry[c.country]=(perCountry[c.country]||0)+1});
+  const me0=me();
+  [...S.companies].forEach(c=>{
+   const a=c.accounts;if(!a||!a.closed||a.lastTurn!==turnNow)return;
+   if(turnNow-n(c.createdTurn)<12)return;
+   if((perCountry[c.country]||0)<=4)return;
+   const reason=n(a.equity)<=0?'patrimonio negativo':(n(c.lossStreak)>=2?n(c.lossStreak)+' semestres seguidos con pérdidas':'');
+   if(!reason)return;
+   perCountry[c.country]--;
+   const i=S.companies.indexOf(c);if(i>=0)S.companies.splice(i,1);
+   Object.values(S.funds||{}).forEach(f=>{if(f&&f.portfolio)delete f.portfolio[c.id]});
+   const rec={turn:turnNow,id:c.id,name:c.name,country:c.country,sector:c.sector,reason,lastResult:n(a.afterTax)};
+   failed.push(rec);
+   if(!Array.isArray(S.bankruptcies))S.bankruptcies=[];
+   S.bankruptcies.push(rec);if(S.bankruptcies.length>40)S.bankruptcies.shift();
+   if(Array.isArray(S.companyLog)){S.companyLog.push({turn:turnNow,country:c.country,kind:'bankruptcy',companyId:c.id,name:c.name,sector:c.sector,amount:0,text:c.name+' ('+c.country+') quebró: '+reason+'.'});if(S.companyLog.length>100)S.companyLog.shift()}
+   const held=n(c.holdings&&c.holdings[me0])+n(c.holdings&&c.holdings['FONDO:'+me0]);
+   if((c.country===me0||held>0)&&typeof addNews==='function')addNews('Quiebra empresarial',c.name+' ('+c.country+', '+c.sector+') quebró por '+reason+'. Sus accionistas pierden la participación.');
+  });
+  return failed;
+ }
+ // Cierre semestral: archiva el resumen del semestre (los balances por empresa ya son semestrales y reemplazan al anterior).
+ function closeSemiannualAccounts(){
   const turnNow=t();
   if(turnNow<=0||turnNow%6!==0||Number(S.lastSemiannualCloseTurn)===turnNow)return;
-  const fromTurn=turnNow-5;
-  const companyReports=S.companies.map(c=>{
-   const h=(Array.isArray(c.accounts?.history)?c.accounts.history:[]).filter(x=>n(x.turn)>=fromTurn&&n(x.turn)<=turnNow);
-   if(!h.length)return null;
-   const sum=k=>h.reduce((a,x)=>a+n(x[k]),0);
-   const last=h.slice().sort((a,b)=>n(b.turn)-n(a.turn))[0];
-   return {id:c.id,name:c.name,country:c.country,sector:c.sector,months:h.length,revenue:sum('revenue'),operatingCosts:sum('operatingCosts'),netProfit:sum('netProfit'),taxes:sum('taxes'),logisticsRevenue:sum('logisticsRevenue'),closing:{assets:n(last.assets),liabilities:n(last.liabilities),equity:n(last.equity),debt:n(last.debt),employees:n(last.employees)}};
-  }).filter(Boolean);
+  const fromTurn=turnNow-5,mine=me();
+  const companyReports=S.companies.filter(c=>c.country===mine&&c.accounts&&c.accounts.closed&&c.accounts.lastTurn===turnNow).map(c=>{const a=c.accounts;return {id:c.id,name:c.name,country:c.country,sector:c.sector,months:6,revenue:n(a.revenue),operatingCosts:n(a.operatingCosts),netProfit:n(a.afterTax),taxes:n(a.taxes),logisticsRevenue:n(a.logisticsRevenue),closing:{assets:n(a.assets),liabilities:n(a.liabilities),equity:n(a.equity),debt:n(a.debt),employees:n(a.employees)}}});
   const transactions=(Array.isArray(S.tradeLog)?S.tradeLog:[]).filter(x=>n(x.turn)>=fromTurn&&n(x.turn)<=turnNow);
   const corporateEvents=(Array.isArray(S.companyLog)?S.companyLog:[]).filter(x=>n(x.turn)>=fromTurn&&n(x.turn)<=turnNow);
   const txByType={};
   transactions.forEach(x=>{const k=String(x.type||'Otra');if(!txByType[k])txByType[k]={count:0,amount:0};txByType[k].count++;txByType[k].amount+=n(x.amount);});
+  const failed=processBankruptcies(turnNow);
   if(!Array.isArray(S.semiannualReports))S.semiannualReports=[];
-  S.semiannualReports.push({fromTurn,toTurn:turnNow,period:'Turnos '+fromTurn+'–'+turnNow,companies:companyReports,transactions:{count:transactions.length,totalAmount:transactions.reduce((a,x)=>a+n(x.amount),0),byType:txByType},corporateEvents:{count:corporateEvents.length,totalInvestment:corporateEvents.reduce((a,x)=>a+n(x.amount),0)}});
-  // Mantiene balances vigentes, capital, acciones y participaciones.
-  S.companies.forEach(c=>{if(c.accounts&&Array.isArray(c.accounts.history))c.accounts.history=c.accounts.history.filter(x=>n(x.turn)>=fromTurn);});
+  S.semiannualReports.push({fromTurn,toTurn:turnNow,period:'Turnos '+fromTurn+'–'+turnNow,companies:companyReports,bankruptcies:failed.length,transactions:{count:transactions.length,totalAmount:transactions.reduce((a,x)=>a+n(x.amount),0),byType:txByType},corporateEvents:{count:corporateEvents.length,totalInvestment:corporateEvents.reduce((a,x)=>a+n(x.amount),0)}});
+  if(S.semiannualReports.length>4)S.semiannualReports=S.semiannualReports.slice(-4);
   S.tradeLog=transactions;
   S.companyLog=corporateEvents;
   S.lastSemiannualCloseTurn=turnNow;
  }
  function accountsPanel(){if(!S)return '';const companies=S.companies.filter(c=>c.country===me()).sort((a,b)=>n(b.accounts?.netProfit)-n(a.accounts?.netProfit));const rows=companies.map(c=>{const a=c.accounts||{};return `<tr><td><b>${esc(c.name)}</b><br><small>${esc(c.sector)}</small></td><td>USD ${n(a.revenue).toFixed(3)}</td><td>USD ${n(a.operatingCosts).toFixed(3)}</td><td class="${n(a.afterTax)>=0?'up':'down'}">USD ${n(a.afterTax).toFixed(3)}</td><td>USD ${n(a.assets).toFixed(2)}</td><td>USD ${n(a.liabilities).toFixed(2)}</td><td>USD ${n(a.debt).toFixed(2)}</td><td>${n(a.employees).toLocaleString('es-AR')}</td><td>${n(c.marketCap).toFixed(2)}</td></tr>`}).join('')||'<tr><td colspan="9">No hay empresas nacionales listadas.</td></tr>';
-  const recent=S.companies.filter(c=>c.country===me()&&c.accounts?.history?.length).sort((a,b)=>n(b.accounts.lastTurn)-n(a.accounts.lastTurn)).slice(0,6).map(c=>`<div class="news"><small>${esc(c.accounts.period)} · ${esc(c.name)}</small><p>Ingresos: USD ${n(c.accounts.revenue).toFixed(3)} mil M · Costos: USD ${n(c.accounts.operatingCosts).toFixed(3)} mil M · Resultado neto: <b class="${n(c.accounts.afterTax)>=0?'up':'down'}">USD ${n(c.accounts.afterTax).toFixed(3)} mil M</b>. Capitalización: USD ${n(c.marketCap).toFixed(2)} mil M.</p>${c.accounts.logisticsContracts?`<small>Contratos logísticos: ${c.accounts.logisticsContracts} · ingresos logísticos: USD ${n(c.accounts.logisticsRevenue).toFixed(3)} mil M</small>`:''}${c.accounts.sanctionLevel?`<small>Impacto de sanciones internacionales: nivel ${c.accounts.sanctionLevel}</small>`:''}</div>`).join('');
+  const recent=S.companies.filter(c=>c.country===me()&&n(c.accounts?.lastTurn)>=0).sort((a,b)=>n(b.accounts.lastTurn)-n(a.accounts.lastTurn)).slice(0,6).map(c=>`<div class="news"><small>${esc(c.accounts.period)} · ${esc(c.name)}</small><p>Ingresos: USD ${n(c.accounts.revenue).toFixed(3)} mil M · Costos: USD ${n(c.accounts.operatingCosts).toFixed(3)} mil M · Resultado neto: <b class="${n(c.accounts.afterTax)>=0?'up':'down'}">USD ${n(c.accounts.afterTax).toFixed(3)} mil M</b>. Capitalización: USD ${n(c.marketCap).toFixed(2)} mil M.</p>${c.accounts.logisticsContracts?`<small>Contratos logísticos: ${c.accounts.logisticsContracts} · ingresos logísticos: USD ${n(c.accounts.logisticsRevenue).toFixed(3)} mil M</small>`:''}${c.accounts.sanctionLevel?`<small>Impacto de sanciones internacionales: nivel ${c.accounts.sanctionLevel}</small>`:''}</div>`).join('');
   const reportsHtml=(Array.isArray(S.semiannualReports)?S.semiannualReports:[]).slice().reverse().slice(0,4).map(r=>{const own=(r.companies||[]).filter(c=>c.country===me());const items=own.map(c=>`<div class="news"><b>${esc(c.name)}</b> · ${esc(c.sector)}<p>Ingresos: USD ${n(c.revenue).toFixed(3)} mil M · Costos: USD ${n(c.operatingCosts).toFixed(3)} mil M · Ganancia neta: USD ${n(c.netProfit).toFixed(3)} mil M · Impuestos: USD ${n(c.taxes).toFixed(3)} mil M.</p><small>Cierre: activos ${n(c.closing?.assets).toFixed(2)} · pasivos ${n(c.closing?.liabilities).toFixed(2)} · patrimonio ${n(c.closing?.equity).toFixed(2)} · deuda ${n(c.closing?.debt).toFixed(2)} · empleados ${n(c.closing?.employees).toLocaleString('es-AR')}</small></div>`).join('');return `<div class="news"><h4>📊 ${esc(r.period||('Turnos '+r.fromTurn+'–'+r.toTurn))}</h4><p>Operaciones bursátiles: ${n(r.transactions?.count)} · volumen: USD ${n(r.transactions?.totalAmount).toFixed(3)} mil M · eventos/inversiones corporativas: ${n(r.corporateEvents?.count)} · inversión registrada: USD ${n(r.corporateEvents?.totalInvestment).toFixed(3)} mil M.</p>${items||'<small>Sin empresas nacionales registradas en este cierre.</small>'}</div>`}).join('');
-  return `<section id="omCompanyAccounts" class="om-card" style="margin-top:22px"><div class="om-hero"><div><span class="om-kicker">MERCADO DE CAPITALES · INFORMACIÓN CONTABLE</span><h2>Balances empresariales</h2><p>Resultados mensuales simulados. Los ingresos logísticos incluyen las comisiones de los contratos de transporte registrados en el mercado de materias primas.</p></div><div class="om-hero-badge">📑 Balances</div></div><div style="overflow:auto"><table class="data-table"><thead><tr><th>Empresa</th><th>Ingresos</th><th>Costos operativos</th><th>Resultado neto</th><th>Activos</th><th>Pasivos</th><th>Deuda</th><th>Empleados</th><th>Capitalización</th></tr></thead><tbody>${rows}</tbody></table></div><h3>Últimos balances publicados</h3>${recent||'<p class="muted">Los balances se publican al avanzar el próximo mes.</p>'}<h3>Historial de cierres semestrales</h3>${reportsHtml||'<p class="muted">Todavía no hay cierres semestrales. El primero se generará al completar seis turnos.</p>'}<p class="om-note">Importes en miles de millones de USD simulados. La cotización incorpora el resultado neto, además de los factores de mercado existentes. La plantilla se estima según el capital y el sector.</p></section>`;}
+  const bkHtml=(Array.isArray(S.bankruptcies)&&S.bankruptcies.length)?`<div style="margin:10px 0"><b>Quiebras recientes</b>${S.bankruptcies.slice(-6).reverse().map(r=>`<div class="news"><small>Turno ${n(r.turn)} · ${esc(r.country)}</small><p><b>${esc(r.name)}</b> (${esc(r.sector)}) quebró: ${esc(r.reason)}.</p></div>`).join('')}</div>`:'';
+  return `<section id="omCompanyAccounts" class="om-card" style="margin-top:22px"><div class="om-hero"><div><span class="om-kicker">MERCADO DE CAPITALES · INFORMACIÓN CONTABLE</span><h2>Balances empresariales</h2><p>Balances semestrales: cada 6 turnos el balance nuevo reemplaza al anterior. Dos semestres seguidos con pérdidas, o patrimonio negativo, llevan a la quiebra. Los ingresos logísticos incluyen las comisiones de los contratos de transporte registrados en el mercado de materias primas.</p></div><div class="om-hero-badge">📑 Balances</div></div>${bkHtml}<div style="overflow:auto"><table class="data-table"><thead><tr><th>Empresa</th><th>Ingresos</th><th>Costos operativos</th><th>Resultado neto</th><th>Activos</th><th>Pasivos</th><th>Deuda</th><th>Empleados</th><th>Capitalización</th></tr></thead><tbody>${rows}</tbody></table></div><h3>Últimos balances publicados</h3>${recent||'<p class="muted">Los balances se publican al avanzar el próximo mes.</p>'}<h3>Historial de cierres semestrales</h3>${reportsHtml||'<p class="muted">Todavía no hay cierres semestrales. El primero se generará al completar seis turnos.</p>'}<p class="om-note">Importes en miles de millones de USD simulados. La cotización incorpora el resultado neto, además de los factores de mercado existentes. La plantilla se estima según el capital y el sector.</p></section>`;}
  const oldSelect=window.selectSection;
  if(typeof oldSelect==='function')window.selectSection=function(section){const r=oldSelect.apply(this,arguments);const body=document.getElementById('workspaceBody');if(!body)return r;if(section==='ONU'){body.innerHTML=resolutionRender();const title=document.getElementById('workspaceTitle');if(title)title.textContent='Naciones Unidas · conflictos y resoluciones';}if(section==='Bolsas'){const host=document.createElement('div');host.innerHTML=accountsPanel();body.appendChild(host.firstElementChild)}return r};
  const next=document.getElementById('nextTurn');if(next){const prior=next.onclick;next.onclick=function(...args){const result=prior?.apply(this,args);try{updateEmployment();updateCompanyAccounts();closeSemiannualAccounts();save();}catch(e){console.error('OM integrated economy:',e)}const active=document.querySelector('#nav button.active')?.dataset.section;if(active==='ONU')window.selectSection('ONU');if(active==='Bolsas')window.selectSection('Bolsas');return result};}
@@ -3590,5 +3658,23 @@ addNav();save();window.omDeepSystems={state:()=>clone(S),monthly,renderers};
 })();
 </script>
 
+<script>
+/* Optimización de guardado: recorta los decimales excesivos (de ~17 a 8 cifras significativas). El valor es prácticamente idéntico y la partida pesa mucho menos. */
+(function(){
+ function slim(v){
+  if(typeof v==='number'){return Number.isInteger(v)||!isFinite(v)?v:Number(v.toPrecision(8))}
+  if(Array.isArray(v)){for(let i=0;i<v.length;i++)v[i]=slim(v[i]);return v}
+  if(v&&typeof v==='object'){for(const k in v)v[k]=slim(v[k]);return v}
+  return v;
+ }
+ const prev=window.collectGame;
+ if(typeof prev==='function'&&!prev.__omSlim){
+  const wrapped=function(){const d=prev.apply(this,arguments);try{return slim(d)}catch(e){return d}};
+  wrapped.__omSlim=true;
+  window.collectGame=wrapped;
+  try{collectGame=wrapped}catch(e){}
+ }
+})();
+</script>
 </body>
 </html>
